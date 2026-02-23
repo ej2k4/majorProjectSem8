@@ -1,0 +1,132 @@
+# # import torch
+# # from model import TinyLSTM
+# # from utils import tokenize, build_vocab
+
+# # def generate(model, scenario_token, word2idx, idx2word, length=80):
+# #     model.eval()
+
+# #     input_word = torch.tensor([[word2idx[scenario_token]]])
+# #     result = [scenario_token]
+
+# #     hidden = None
+
+# #     for _ in range(length):
+# #         output, hidden = model(input_word, hidden)
+# #         probs = torch.softmax(output[0, -1], dim=0)
+# #         next_word_idx = torch.argmax(probs).item()
+# #         next_word = idx2word[next_word_idx]
+
+# #         result.append(next_word)
+# #         input_word = torch.tensor([[next_word_idx]])
+
+# #     return " ".join(result)
+
+
+# import torch
+# from model import TinyLSTM
+# from utils import tokenize, build_vocab
+
+# # Reload dataset for vocab
+# with open("dataset/stories.txt", "r") as f:
+#     text = f.read()
+
+# tokens = tokenize(text)
+# word2idx, idx2word = build_vocab(tokens)
+
+# vocab_size = len(word2idx)
+
+# model = TinyLSTM(vocab_size)
+# model.load_state_dict(torch.load("tiny_lstm.pth"))
+# model.eval()
+
+# def generate(seed_text, max_words=30):
+#     words = seed_text.lower().split()
+#     state = None
+
+#     for _ in range(max_words):
+#         input_ids = torch.tensor([[word2idx.get(w, 0) for w in words[-5:]]])
+#         output, state = model(input_ids, state)
+#         last_word_logits = output[0, -1]
+#         predicted_idx = torch.argmax(last_word_logits).item()
+#         next_word = idx2word[predicted_idx]
+#         words.append(next_word)
+
+#     return " ".join(words)
+
+# print(generate("<scenario_dentist> arjun"))
+
+
+import torch
+import json
+from model import TinyLSTM
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load vocab
+with open("vocab.json", "r") as f:
+    word2idx = json.load(f)
+
+idx2word = {i: w for w, i in word2idx.items()}
+
+# Load model
+checkpoint = torch.load("tiny_lstm.pth", map_location=device)
+
+model = TinyLSTM(checkpoint["vocab_size"]).to(device)
+model.load_state_dict(checkpoint["model_state_dict"])
+model.eval()
+
+def generate(seed_text, max_words=60):
+    words = seed_text.lower().split()
+    state = None
+
+    for _ in range(max_words):
+        input_ids = torch.tensor(
+            [[word2idx.get(w, word2idx.get("<unk>", 0)) for w in words[-10:]]]
+        ).to(device)
+
+        output, state = model(input_ids, state)
+
+        logits = output[0, -1]
+
+        #  Repetition penalty
+        for word in set(words[-15:]):  # penalize recent words
+            if word in word2idx:
+                logits[word2idx[word]] /= 1.5
+
+        temperature = 1.1
+        probs = torch.softmax(logits / temperature, dim=0)
+
+        #  Top-k sampling
+        top_k = 10
+        top_probs, top_indices = torch.topk(probs, top_k)
+        top_probs = top_probs / torch.sum(top_probs)
+
+        predicted_idx = top_indices[torch.multinomial(top_probs, 1)].item()
+        next_word = idx2word[predicted_idx]
+
+        if next_word == "<end>":
+            break
+
+        words.append(next_word)
+
+    return " ".join(words)
+
+
+
+if __name__ == "__main__":
+    user_name = input("Enter a name: ").strip().lower()
+    scenario = input("Enter a scenario (e.g. dentist): ").strip().lower()
+    scenario = scenario.replace(" ", "_")
+
+    seed_text = f"<scenario_{scenario}> <name>"
+    story = generate(seed_text)
+
+    story = story.replace("<name>", user_name)
+    story = story.replace(f"<scenario_{scenario}>", "")
+    story = story.replace("<end>", "")
+    story = story.strip()
+
+
+    print("\nGenerated Story:\n")
+    print(story)
+
