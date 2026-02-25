@@ -8,7 +8,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 import logging
 
-from backend.generator import Generator  # from existing repo file
+from majorProjectSem8.cartoonImage_model.generator import Generator  # from existing repo file
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

@@ -93,7 +93,7 @@ def generate(seed_text, max_words=60):
             if word in word2idx:
                 logits[word2idx[word]] /= 1.5
 
-        temperature = 1.1
+        temperature = 0.75
         probs = torch.softmax(logits / temperature, dim=0)
 
         #  Top-k sampling
@@ -115,14 +115,16 @@ def generate(seed_text, max_words=60):
 
 if __name__ == "__main__":
     user_name = input("Enter a name: ").strip().lower()
-    scenario = input("Enter a scenario (e.g. dentist): ").strip().lower()
+    scenario = input("Enter a scenario: ").strip().lower().replace(" ", "_")
+    emotion = input("Enter current emotion: ").strip().lower().replace(" ", "_")
     scenario = scenario.replace(" ", "_")
 
-    seed_text = f"<scenario_{scenario}> <name>"
+    seed_text = f"<SCENARIO_{scenario}> <EMOTION_{emotion}> <NAME>"
     story = generate(seed_text)
 
-    story = story.replace("<name>", user_name)
-    story = story.replace(f"<scenario_{scenario}>", "")
+    story = story.replace("<NAME>", user_name)
+    story = story.replace(f"<SCENARIO_{scenario}>", "")
+    story = story.replace(f"<EMOTION_{emotion}>", "")
     story = story.replace("<end>", "")
     story = story.strip()
 

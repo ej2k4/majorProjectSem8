@@ -1,11 +1,52 @@
 import re
 
+# def preprocess_text(file_path):
+#     """
+#     Reads dataset and converts:
+#     - lowercase
+#     - [NAME] → <NAME>
+#     - [SCENARIO] dentist → <SCENARIO_dentist>
+#     """
+
+#     processed_text = ""
+
+#     with open(file_path, "r", encoding="utf-8") as f:
+#         lines = f.readlines()
+
+#     current_scenario = None
+
+#     for line in lines:
+#         line = line.strip()
+
+#         # Convert to lowercase
+#         line = line.lower()
+
+#         # Replace [name]
+#         line = line.replace("[name]", "<NAME>")
+
+#         # Replace scenario line
+#         if line.startswith("[scenario]"):
+#             scenario_name = line.replace("[scenario]", "").strip()
+#             current_scenario = f"<SCENARIO_{scenario_name}>"
+#             processed_text += current_scenario + "\n"
+#             continue
+
+#         # Skip [text] and [end] tags
+#         if line in ["[text]", "[end]"]:
+#             continue
+
+#         # Add normal story lines
+#         if line:
+#             processed_text += line + "\n"
+
+#     return processed_text
+
 def preprocess_text(file_path):
     """
-    Reads dataset and converts:
-    - lowercase
-    - [NAME] → <NAME>
-    - [SCENARIO] dentist → <SCENARIO_dentist>
+    Converts:
+    [NAME] -> <NAME>
+    [SCENARIO] dentist -> <SCENARIO_dentist>
+    [EMOTION] scared -> <EMOTION_scared>
     """
 
     processed_text = ""
@@ -13,29 +54,24 @@ def preprocess_text(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    current_scenario = None
-
     for line in lines:
-        line = line.strip()
+        line = line.strip().lower()
 
-        # Convert to lowercase
-        line = line.lower()
-
-        # Replace [name]
         line = line.replace("[name]", "<NAME>")
 
-        # Replace scenario line
         if line.startswith("[scenario]"):
             scenario_name = line.replace("[scenario]", "").strip()
-            current_scenario = f"<SCENARIO_{scenario_name}>"
-            processed_text += current_scenario + "\n"
+            processed_text += f"<SCENARIO_{scenario_name}>\n"
             continue
 
-        # Skip [text] and [end] tags
+        if line.startswith("[emotion]"):
+            emotion_name = line.replace("[emotion]", "").strip()
+            processed_text += f"<EMOTION_{emotion_name}>\n"
+            continue
+
         if line in ["[text]", "[end]"]:
             continue
 
-        # Add normal story lines
         if line:
             processed_text += line + "\n"
 

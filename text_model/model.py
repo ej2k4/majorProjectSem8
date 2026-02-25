@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class TinyLSTM(nn.Module):
-    def __init__(self, vocab_size, embed_size=64, hidden_size=128, num_layers=1):
+    def __init__(self, vocab_size, embed_size=128, hidden_size=256, num_layers=1):
         super(TinyLSTM, self).__init__()
 
         self.hidden_size = hidden_size
