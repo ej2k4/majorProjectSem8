@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from generator import Generator
+from backend.generator import Generator
 from discriminator import Discriminator
 from utils import get_dataloader
 

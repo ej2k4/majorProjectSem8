@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+env/
+ENV/
+dist/
+build/
+
+# FastAPI / Uvicorn
+__pycache__
+
+# Model weights (these are large!)
+*.pth
+*.pt
+*.h5
+*.keras
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+__pycache__/
+*.pyc
+.env    
