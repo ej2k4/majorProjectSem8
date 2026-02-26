@@ -22,7 +22,7 @@ __pycache__
 # IDE
 .vscode/
 .idea/
-
+######
 # OS
 .DS_Store
 Thumbs.db
