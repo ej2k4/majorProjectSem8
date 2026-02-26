@@ -90,7 +90,7 @@ noise_dim = 100
 lr_g = 0.0002
 lr_d = 0.00002
 # num_epochs = 30
-num_epochs = 5
+num_epochs = 50
 
 dataloader, num_classes = get_dataloader()
 
