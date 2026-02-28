@@ -46,6 +46,29 @@ function StoryGenerator() {
         <option value="doctor_visit">Doctor Visit</option>
         <option value="dentist">Dentist</option>
         <option value="haircut">Haircut</option>
+        <option value="school_bus">School Bus</option>
+        <option value="birthday_party">Birthday Party</option>
+        <option value="loud_noise">Loud Noise</option>
+        <option value="grocery_store">Grocery Store</option>
+        <option value="waiting_in_line">Waiting In Line</option>
+        <option value="classroom_test">Classroom Test</option>
+        <option value="new_teacher">New Teacher</option>
+        <option value="substitute_teacher">Substitute Teacher</option>
+        <option value="cafeteria_noise">Cafeteria Noise</option>
+        <option value="playground_conflict">Playground Conflict</option>
+        <option value="swimming_pool">Swimming Pool</option>
+        <option value="moving_house">Moving House</option>
+        <option value="fire_alarm">Fire Alarm</option>
+        <option value="sharing_toys">Sharing Toys</option>
+        <option value="sports_day">Sports Day</option>
+        <option value="bedtime">Bedtime</option>
+        <option value="library_visit">Library Visit</option>
+        <option value="broken_routine">Broken Routine</option>
+        <option value="vaccination">Vaccination</option>
+        <option value="art_class">Art Class</option>
+        <option value="assembly">Assembly</option>
+        <option value="losing_game">Losing Game</option>
+        <option value="group_activity">Group Activity</option>
       </select>
 
       <br /><br />

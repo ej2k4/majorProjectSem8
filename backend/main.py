@@ -8,6 +8,9 @@ from PIL import Image
 import torchvision.transforms as transforms
 import logging
 import pickle
+import os
+import json
+from datetime import datetime
 
 from sentence_prediction.model import Encoder, Decoder, Seq2Seq
 from cartoonImage_model.generator import Generator
@@ -34,16 +37,12 @@ app.add_middleware(
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# -------------------- Cartoon Model --------------------
+# =====================================================
+# -------------------- Cartoon Model -------------------
+# =====================================================
 
 NUM_CLASSES = 3
 NOISE_DIM = 100
-
-LABELS_MAP = {
-    0: "dentist",
-    1: "doctor",
-    2: "haircut"
-}
 
 SCENARIO_TO_LABEL = {
     "dentist": 0,
@@ -60,14 +59,15 @@ try:
 except Exception as e:
     logger.warning(f"Generator not loaded: {e}")
 
-# -------------------- Sentence Model --------------------
-
-import os
+# =====================================================
+# -------------------- Sentence Model ------------------
+# =====================================================
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 VOCAB_PATH = os.path.join(BASE_DIR, "sentence_prediction", "vocab.pkl")
 MODEL_PATH = os.path.join(BASE_DIR, "sentence_prediction", "asd_model.pt")
+LOG_PATH = os.path.join(BASE_DIR, "sentence_prediction", "interaction_log.json")
 
 with open(VOCAB_PATH, "rb") as f:
     vocab = pickle.load(f)
@@ -101,7 +101,9 @@ class FullGenerateRequest(BaseModel):
 class SentenceRequest(BaseModel):
     text: str
 
-# -------------------- Helpers --------------------
+# =====================================================
+# -------------------- Helpers ------------------------
+# =====================================================
 
 def tensor_to_base64(image_tensor):
     if image_tensor.dim() == 4:
@@ -120,7 +122,6 @@ def predict_sentence_model(text):
 
     tokens = text.lower().split()
 
-    # Convert input to indices and pad to MAX_LEN
     indices = [vocab.get(token, vocab["<unk>"]) for token in tokens]
     indices = indices[:MAX_LEN]
     indices += [vocab["<pad>"]] * (MAX_LEN - len(indices))
@@ -145,12 +146,34 @@ def predict_sentence_model(text):
             break
 
         generated_tokens.append(inv_vocab.get(token_id, ""))
-
         input_token = top1
 
     return " ".join(generated_tokens)
 
-# -------------------- Routes --------------------
+def append_to_log(input_text, prediction_text):
+    log_entry = {
+        "input": input_text,
+        "prediction": prediction_text,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    if os.path.exists(LOG_PATH):
+        with open(LOG_PATH, "r") as f:
+            try:
+                data = json.load(f)
+            except:
+                data = []
+    else:
+        data = []
+
+    data.append(log_entry)
+
+    with open(LOG_PATH, "w") as f:
+        json.dump(data, f, indent=4)
+
+# =====================================================
+# -------------------- Routes -------------------------
+# =====================================================
 
 @app.get("/")
 def home():
@@ -159,33 +182,35 @@ def home():
 @app.post("/generate-full")
 def generate_full(request: FullGenerateRequest):
     try:
-        if request.scenario not in SCENARIO_TO_LABEL:
-            raise HTTPException(status_code=400, detail="Invalid scenario")
-
-        label_value = SCENARIO_TO_LABEL[request.scenario]
-
-        # Generate cartoon
-        noise = torch.randn(1, NOISE_DIM, device=DEVICE)
-        label = torch.tensor([label_value], device=DEVICE)
-
-        with torch.no_grad():
-            fake_image = G(noise, label)
-
-        img_base64 = tensor_to_base64(fake_image)
-
         scenario_text = request.scenario.replace("_", " ")
 
+        img_base64 = None
+
+        # Only generate cartoon if GAN supports it
+        if request.scenario in SCENARIO_TO_LABEL:
+            label_value = SCENARIO_TO_LABEL[request.scenario]
+
+            noise = torch.randn(1, NOISE_DIM, device=DEVICE)
+            label = torch.tensor([label_value], device=DEVICE)
+
+            with torch.no_grad():
+                fake_image = G(noise, label)
+
+            img_base64 = tensor_to_base64(fake_image)
+
+        # ----------------------------
+        # Generate Story (JSON based)
+        # ----------------------------
         story = f"""
-        Once upon a time, {request.name} was feeling {request.emotion}.
-        Today was the day of the {scenario_text}.
-        At first, it felt a little scary.
-        But the people there were kind and friendly.
-        {request.name} stayed brave and everything went well!
+        {request.name} is feeling {request.emotion}.
+        Today was about {scenario_text}.
+        Even if things felt difficult, {request.name} stayed calm.
+        Everything slowly became better.
         """
 
         return {
             "story": story.strip(),
-            "image": img_base64,
+            "image": img_base64,   # Can be None
             "scenario": scenario_text
         }
 
@@ -197,7 +222,14 @@ def generate_full(request: FullGenerateRequest):
 def predict_sentence(request: SentenceRequest):
     try:
         fragmented = request.text.strip()
+
+        if not fragmented:
+            raise HTTPException(status_code=400, detail="Empty input")
+
         prediction = predict_sentence_model(fragmented)
+
+        # Append to interaction_log.json
+        append_to_log(fragmented, prediction)
 
         return {
             "input": fragmented,
