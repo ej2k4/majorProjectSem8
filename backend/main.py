@@ -10,12 +10,17 @@ import logging
 import pickle
 import os
 import json
+import re
 from datetime import datetime
 
+# ---- Models ----
 from sentence_prediction.model import Encoder, Decoder, Seq2Seq
 from cartoonImage_model.generator import Generator
+from text_model.model import TinyLSTM   # adjust folder if needed
 
-# -------------------- Setup --------------------
+# =====================================================
+# -------------------- Setup ---------------------------
+# =====================================================
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,6 +41,7 @@ app.add_middleware(
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # =====================================================
 # -------------------- Cartoon Model -------------------
@@ -53,17 +59,16 @@ SCENARIO_TO_LABEL = {
 G = Generator(NOISE_DIM, NUM_CLASSES).to(DEVICE)
 
 try:
-    G.load_state_dict(torch.load("generator.pth", map_location=DEVICE))
+    GEN_PATH = os.path.join(BASE_DIR, "cartoonImage_model", "generator.pth")
+    G.load_state_dict(torch.load(GEN_PATH, map_location=DEVICE))
     G.eval()
-    logger.info("Cartoon generator loaded successfully")
+    logger.info("Cartoon model loaded")
 except Exception as e:
-    logger.warning(f"Generator not loaded: {e}")
+    logger.warning(f"Cartoon model not loaded: {e}")
 
 # =====================================================
-# -------------------- Sentence Model ------------------
+# ---------------- Sentence Model ----------------------
 # =====================================================
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 VOCAB_PATH = os.path.join(BASE_DIR, "sentence_prediction", "vocab.pkl")
 MODEL_PATH = os.path.join(BASE_DIR, "sentence_prediction", "asd_model.pt")
@@ -83,15 +88,34 @@ encoder = Encoder(VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE)
 decoder = Decoder(VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE)
 
 sentence_model = Seq2Seq(encoder, decoder, DEVICE).to(DEVICE)
+sentence_model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+sentence_model.eval()
 
-try:
-    sentence_model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
-    sentence_model.eval()
-    logger.info("Sentence model loaded successfully")
-except Exception as e:
-    logger.error(f"Error loading sentence model: {e}")
+logger.info("Sentence model loaded")
 
-# -------------------- Request Models --------------------
+# =====================================================
+# ---------------- Story TinyLSTM Model ----------------
+# =====================================================
+
+STORY_VOCAB_PATH = os.path.join(BASE_DIR, "text_model", "vocab.json")
+STORY_MODEL_PATH = os.path.join(BASE_DIR, "text_model", "tiny_lstm.pth")
+
+with open(STORY_VOCAB_PATH, "r") as f:
+    story_word2idx = json.load(f)
+
+story_idx2word = {int(v): k for k, v in story_word2idx.items()}
+
+checkpoint = torch.load(STORY_MODEL_PATH, map_location=DEVICE)
+
+story_model = TinyLSTM(checkpoint["vocab_size"]).to(DEVICE)
+story_model.load_state_dict(checkpoint["model_state_dict"])
+story_model.eval()
+
+logger.info("Story model loaded")
+
+# =====================================================
+# ---------------- Request Models ----------------------
+# =====================================================
 
 class FullGenerateRequest(BaseModel):
     scenario: str
@@ -102,7 +126,7 @@ class SentenceRequest(BaseModel):
     text: str
 
 # =====================================================
-# -------------------- Helpers ------------------------
+# ---------------- Helper Functions --------------------
 # =====================================================
 
 def tensor_to_base64(image_tensor):
@@ -110,50 +134,46 @@ def tensor_to_base64(image_tensor):
         image_tensor = image_tensor.squeeze(0)
 
     image_tensor = torch.clamp(image_tensor, 0, 1)
-    transform = transforms.ToPILImage()
-    image = transform(image_tensor.cpu())
+    image = transforms.ToPILImage()(image_tensor.cpu())
 
     buffered = BytesIO()
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
+# ---------- Sentence Prediction ----------
+
 def predict_sentence_model(text):
-    sentence_model.eval()
-
     tokens = text.lower().split()
-
-    indices = [vocab.get(token, vocab["<unk>"]) for token in tokens]
+    indices = [vocab.get(t, vocab["<unk>"]) for t in tokens]
     indices = indices[:MAX_LEN]
     indices += [vocab["<pad>"]] * (MAX_LEN - len(indices))
 
-    src_tensor = torch.tensor(indices).unsqueeze(0).to(DEVICE)
+    src = torch.tensor(indices).unsqueeze(0).to(DEVICE)
 
     with torch.no_grad():
-        hidden = sentence_model.encoder(src_tensor)
+        hidden = sentence_model.encoder(src)
 
     input_token = torch.tensor([vocab["<sos>"]]).to(DEVICE)
-
-    generated_tokens = []
+    output_words = []
 
     for _ in range(MAX_LEN):
         with torch.no_grad():
             output, hidden = sentence_model.decoder(input_token, hidden)
 
-        top1 = output.argmax(1)
-        token_id = top1.item()
+        top1 = output.argmax(1).item()
 
-        if token_id == vocab["<eos>"] or token_id == vocab["<pad>"]:
+        if top1 in [vocab["<eos>"], vocab["<pad>"]]:
             break
 
-        generated_tokens.append(inv_vocab.get(token_id, ""))
-        input_token = top1
+        output_words.append(inv_vocab.get(top1, ""))
+        input_token = torch.tensor([top1]).to(DEVICE)
 
-    return " ".join(generated_tokens)
+    return " ".join(output_words)
 
-def append_to_log(input_text, prediction_text):
-    log_entry = {
-        "input": input_text,
-        "prediction": prediction_text,
+def append_to_log(inp, pred):
+    entry = {
+        "input": inp,
+        "prediction": pred,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
@@ -166,13 +186,75 @@ def append_to_log(input_text, prediction_text):
     else:
         data = []
 
-    data.append(log_entry)
+    data.append(entry)
 
     with open(LOG_PATH, "w") as f:
         json.dump(data, f, indent=4)
 
+# ---------- Story Generation ----------
+
+def generate_story(seed_text, max_words=80):
+    words = seed_text.lower().split()
+    state = None
+
+    for _ in range(max_words):
+        input_ids = torch.tensor(
+            [[story_word2idx.get(w, story_word2idx.get("<unk>", 0)) for w in words[-10:]]]
+        ).to(DEVICE)
+
+        with torch.no_grad():
+            output, state = story_model(input_ids, state)
+
+        logits = output[0, -1]
+
+        temperature = 0.8
+        probs = torch.softmax(logits / temperature, dim=0)
+
+        top_k = 10
+        top_probs, top_indices = torch.topk(probs, top_k)
+        top_probs = top_probs / torch.sum(top_probs)
+
+        predicted_idx = top_indices[torch.multinomial(top_probs, 1)].item()
+        next_word = story_idx2word[predicted_idx]
+
+        if next_word == "<end>":
+            break
+
+        words.append(next_word)
+
+    return " ".join(words)
+
+def enrich_emotion(story, name, emotion):
+    emotional_lines = {
+        "excited": [
+            f"{name.capitalize()} feels butterflies of excitement inside.",
+            f"{name.capitalize()} cannot wait to see what happens next."
+        ],
+        "nervous": [
+            f"{name.capitalize()}'s heart beats a little faster.",
+            "It is okay to feel nervous sometimes."
+        ],
+        "sad": [
+            f"{name.capitalize()}'s eyes feel a little heavy.",
+            "It is okay to feel sad."
+        ],
+        "angry": [
+            f"{name.capitalize()}'s hands feel tight for a moment.",
+            "Taking slow deep breaths can help."
+        ],
+        "scared": [
+            f"{name.capitalize()} feels a small shiver inside.",
+            "It is safe, and grown-ups are there to help."
+        ]
+    }
+
+    if emotion in emotional_lines:
+        story = " ".join(emotional_lines[emotion]) + " " + story
+
+    return story
+
 # =====================================================
-# -------------------- Routes -------------------------
+# -------------------- Routes --------------------------
 # =====================================================
 
 @app.get("/")
@@ -182,57 +264,51 @@ def home():
 @app.post("/generate-full")
 def generate_full(request: FullGenerateRequest):
     try:
-        scenario_text = request.scenario.replace("_", " ")
-
+        # ---- Cartoon ----
         img_base64 = None
-
-        # Only generate cartoon if GAN supports it
         if request.scenario in SCENARIO_TO_LABEL:
-            label_value = SCENARIO_TO_LABEL[request.scenario]
-
-            noise = torch.randn(1, NOISE_DIM, device=DEVICE)
-            label = torch.tensor([label_value], device=DEVICE)
+            label = torch.tensor([SCENARIO_TO_LABEL[request.scenario]]).to(DEVICE)
+            noise = torch.randn(1, NOISE_DIM).to(DEVICE)
 
             with torch.no_grad():
-                fake_image = G(noise, label)
+                fake = G(noise, label)
 
-            img_base64 = tensor_to_base64(fake_image)
+            img_base64 = tensor_to_base64(fake)
 
-        # ----------------------------
-        # Generate Story (JSON based)
-        # ----------------------------
-        story = f"""
-        {request.name} is feeling {request.emotion}.
-        Today was about {scenario_text}.
-        Even if things felt difficult, {request.name} stayed calm.
-        Everything slowly became better.
-        """
+        # ---- Story ----
+        seed = f"<scenario_{request.scenario}> <emotion_{request.emotion}> <name> </start>"
+        raw_story = generate_story(seed)
+
+        raw_story = raw_story.replace("<name>", request.name.lower())
+        raw_story = re.sub(r"<.*?>", "", raw_story)
+        raw_story = re.sub(r"\s+", " ", raw_story).strip()
+
+        sentences = [s.strip().capitalize() for s in raw_story.split(".") if s.strip()]
+        story = ". ".join(sentences) + "."
+
+        story = enrich_emotion(story, request.name, request.emotion)
 
         return {
-            "story": story.strip(),
-            "image": img_base64,   # Can be None
-            "scenario": scenario_text
+            "story": story,
+            "image": img_base64,
+            "scenario": request.scenario.replace("_", " ")
         }
 
     except Exception as e:
-        logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/predict-sentence")
 def predict_sentence(request: SentenceRequest):
     try:
-        fragmented = request.text.strip()
-
-        if not fragmented:
+        text = request.text.strip()
+        if not text:
             raise HTTPException(status_code=400, detail="Empty input")
 
-        prediction = predict_sentence_model(fragmented)
-
-        # Append to interaction_log.json
-        append_to_log(fragmented, prediction)
+        prediction = predict_sentence_model(text)
+        append_to_log(text, prediction)
 
         return {
-            "input": fragmented,
+            "input": text,
             "prediction": prediction
         }
 
