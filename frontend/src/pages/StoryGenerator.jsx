@@ -59,7 +59,7 @@ function StoryGenerator() {
       <br /><br />
 
       <input
-        placeholder="Emotion (e.g., nervous, scared, excited)"
+        placeholder="Emotion"
         value={emotion}
         onChange={(e) => setEmotion(e.target.value)}
       />

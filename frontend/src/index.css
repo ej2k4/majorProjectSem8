@@ -8,3 +8,12 @@ body {
   min-height: 100vh;
   background: linear-gradient(135deg, #A5D8FF, #D0BFFF, #B2F2BB);
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-in-out;
+}

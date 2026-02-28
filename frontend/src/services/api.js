@@ -6,3 +6,6 @@ const API = axios.create({
 
 export const generateFull = (data) =>
   API.post("/generate-full", data);
+
+export const predictSentence = (data) =>
+  API.post("/predict-sentence", data);
