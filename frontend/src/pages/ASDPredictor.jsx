@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { predictASD } from "../services/api";
+//import { predictASD } from "../services/api";
 
 function ASDPredictor() {
   const [age, setAge] = useState("");
