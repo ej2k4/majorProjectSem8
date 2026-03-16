@@ -1,0 +1,97 @@
+[
+    {
+        "timestamp": "2026-03-09T13:20:56.865079",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "john",
+            "scenario": "doctor_visit",
+            "emotion": "nervous"
+        },
+        "story": "john  noisy.   many children are playing together.   john can think before spending money.   the problem is waiting to share.   john can try again slowly.   everyone feels better. john feels better."
+    },
+    {
+        "timestamp": "2026-03-09T13:22:13.094804",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "anna",
+            "scenario": "school_exam",
+            "emotion": "anxious"
+        },
+        "story": "anna  each other. anna feels better."
+    },
+    {
+        "timestamp": "2026-03-09T13:43:40.876163",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "james",
+            "scenario": "doctor_visit",
+            "emotion": "nervous"
+        },
+        "story": "<scenario_doctor_visit> <emotion_nervous> <name> </start> calm and safe. <name> feels happy again. <name> feels better. </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> better. </ending> <end> </ending> <end> </ending> <end> </ending> <end> problem is solved kindly. <name> feels better. </ending> <end> </ending> <end> feels happy again. <name> feels happy again. happy again. <name> feels better. </ending> <end> </ending> <end> feels happy again. </ending> <end> </ending> <end> </ending> better. </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> better. </ending> <end> </ending> <end>"
+    },
+    {
+        "timestamp": "2026-03-09T13:44:35.717732",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "rakshitha",
+            "scenario": "loud_cafeteria",
+            "emotion": "shy"
+        },
+        "story": "<scenario_loud_cafeteria> <emotion_shy> <name> </start> calm and safe. <name> feels better. </ending> <end> becomes calm and safe. <name> feels better. </ending> <end> </ending> <end> each other. <name> feels better. </ending> <end> situation gets better. </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> problem is solved kindly. <name> feels better. </ending> <end> each better. </ending> <end> </ending> <end> </ending> <end> feels better. </ending> <end> </ending> <end> </ending> <end> better. </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> better. </ending> <end> situation gets better. </ending> <end>"
+    },
+    {
+        "timestamp": "2026-03-09T13:47:33.852200",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "jony",
+            "scenario": "doctor_visit",
+            "emotion": "nervous"
+        },
+        "story": "<scenario_doctor_visit> <emotion_nervous> <name> </start> better. </ending> <end> feels happy again. <name> feels happy again. <name> feels happy again. </ending> <end> </ending> <end> </ending> <end> </ending> better. </ending> <end> better. </ending> <end> </ending> <end> </ending> <end> </ending> <end> situation gets better. </ending> <end> each better. </ending> <end> </ending> <end> feels happy again. <name> feels happy again. happy again. <name> feels better. </ending> <end> </ending> <end> feels happy again. </ending> <end> </ending> <end> </ending> better. </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end> </ending> <end>"
+    },
+    {
+        "timestamp": "2026-03-09T13:53:08.965202",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "jon",
+            "scenario": "doctor_visit",
+            "emotion": "anxious"
+        },
+        "story": "jon calm and safe. jon feels happy again."
+    },
+    {
+        "timestamp": "2026-03-09T13:53:08.968898",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "jon",
+            "scenario": "doctor_visit",
+            "emotion": "anxious"
+        },
+        "story": "jon calm and safe. jon feels happy again."
+    },
+    {
+        "timestamp": "2026-03-09T13:53:48.183010",
+        "model": "tiny_transformer_v1",
+        "input": {
+            "name": "jonny",
+            "scenario": "money",
+            "emotion": "worried"
+        },
+        "story": "jonny calm and safe. jonny feels better. becomes"
+    },
+    {
+        "timestamp": "2026-03-16T11:54:16.229856",
+        "prompt": "jony | bedtime | worried",
+        "generated_text": "<PAD>betternamefeelsbetterandlearnssomethingimportantmomentinthedaynamefeelsbetterandlearnssomethingimportantmomentinthedaynamefeelsbetterandlearnssomethingimportantendinthesituationintheproblemnamefeelsbetterandlearnssomethingimportantmomentintheproblemnamefeelsbetterandlearnssomethingimportantmomentintheproblemnamefeelsbetterandlearnssomethingimportantmomentintheproblemnamefeelsbetterandlearnssomethingimportantmomentintheproblemnamefeelsbetterandlearnssomethingimportantmomentinthedaynamefeelsbetterandlearnssomethingimportantendintheproblemnamefeelsbetterandlearnssomethingimportantendinthesituationinthedaynamefeelsbetterandlearnssomethingimportantendinthedaynamefeelsbetterandlearnssomethingimportantendlittlebetterandlearnssomethingimportantendinthedaynamefeelsbetterandlearnssomethingimportantendinthedaynamefeelsbetterandlearnssomethingimportantendlittlebetterandlearnssomethingimportantendintheroomamomentintheproblemnamefeelsbetterandlearnssomethingnewnametakesamomentintheroomamomentintheclassroomis"
+    },
+    {
+        "timestamp": "2026-03-16T11:57:01.520921",
+        "prompt": "jonny | doctor visit | worried",
+        "generated_text": "feels worried in the room a teacher is explaining something new name remembers something helpful in the room friends are working together name asks a friend politely name asks a friend politely name takes a friend politely soon things work out well name feels better and learns something important end the day"
+    },
+    {
+        "timestamp": "2026-03-16T11:57:26.776405",
+        "prompt": "abs | buying snacks | excited",
+        "generated_text": "feels excited in the room a group of students are solving a problem name takes a moment to think in the room many students are talking and laughing name thinks carefully about the problem name tries again slowly to think in the room a deep breath soon things begin to feel calmer"
+    }
+]
