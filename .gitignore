@@ -14,7 +14,7 @@ build/
 __pycache__
 
 # Model weights (these are large!)
-*.pth
+#*.pth
 *.pt
 *.h5
 *.keras
@@ -28,7 +28,7 @@ __pycache__
 Thumbs.db
 
 # Logs
-*.log
+#.log
 
 __pycache__/
 *.pyc

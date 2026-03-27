@@ -290,8 +290,7 @@ for epoch in range(start_epoch, num_epochs):
     # -------------------------
     # Save Checkpoint
     # -------------------------
-    if (epoch + 1) % 5 == 0:
-        save_checkpoint(epoch + 1, G, D, optimizer_G, optimizer_D, avg_d_loss, avg_g_loss)
+    save_checkpoint(epoch + 1, G, D, optimizer_G, optimizer_D, avg_d_loss, avg_g_loss)
 
     # -------------------------
     # Save Samples
