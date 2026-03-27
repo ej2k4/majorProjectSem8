@@ -47,7 +47,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # -------------------- Cartoon Model -------------------
 # =====================================================
 
-NUM_CLASSES = 3
+NUM_CLASSES = 24
 NOISE_DIM = 100
 
 SCENARIO_TO_LABEL = {

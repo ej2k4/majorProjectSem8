@@ -10,6 +10,10 @@ function Navbar() {
       <Link to="/sentence">
          Sentence Prediction
       </Link>
+
+      <Link to="/game" style={{ marginLeft: "20px" }}>
+         Gamified Learning
+      </Link>
     </nav>
   );
 }

@@ -38,5 +38,15 @@
         "input": "drink water",
         "prediction": "i need water",
         "timestamp": "2026-02-28 13:18:13"
+    },
+    {
+        "input": "water",
+        "prediction": "i need water",
+        "timestamp": "2026-03-27 17:03:04"
+    },
+    {
+        "input": "fuck",
+        "prediction": "i like to play with my sister",
+        "timestamp": "2026-03-27 17:03:08"
     }
 ]
