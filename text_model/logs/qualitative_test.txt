@@ -1,0 +1,27 @@
+Qualitative Test — 2026-03-23 05:20:03
+Emotion: nervous
+============================================================
+
+[dentist_visit]
+feels nervous. the pool smells clean. children splash loudly. can wear floaties. can take deep breaths. the situation ends safely. feels better.
+------------------------------------------------------------
+
+[haircut]
+feels scared. the room is dark. the clock ticks softly. can call a parent. can hug a soft toy. the situation ends safely. feels better.
+------------------------------------------------------------
+
+[school_bus]
+feels nervous. the pool smells clean. children splash loudly. can wear floaties. can take deep breaths. the situation ends safely. feels better.
+------------------------------------------------------------
+
+[birthday_party]
+feels better.
+------------------------------------------------------------
+
+[bedtime]
+the situation ends safely. feels better.
+------------------------------------------------------------
+
+[classroom_test]
+the classroom test. the dentist counts feels excited. the teacher smiles kindly. the scissors make a soft sound. can hold a small toy. can ask for help. the situation ends safely. feels better.
+------------------------------------------------------------

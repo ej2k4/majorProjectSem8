@@ -1,0 +1,17 @@
+[
+  {
+    "timestamp": "2026-03-15T19:21:25.577148",
+    "input": "<scenario_doctor_visit> <emotion_scared> <start>",
+    "generated_text": "<scenario_doctor_visit> <emotion_scared> <start> <emotion_scared> interesting interesting is <emotion_scared> is interesting is is is <emotion_scared> is is is is colorful is is <emotion_scared> is <emotion_scared> is <emotion_scared> is <emotion_scared> is is is is is is colorful is is is <emotion_scared> is is is is is is interesting <emotion_scared> interesting is interesting is is is is <start> <emotion_scared> interesting <emotion_scared> interesting <emotion_scared> is is colorful"
+  },
+  {
+    "timestamp": "2026-03-22T14:40:05.462927",
+    "input": "<scenario_doctor_visit> <emotion_scared> <start>",
+    "generated_text": "<scenario_doctor_visit> <emotion_scared> <start> <emotion_scared> interesting interesting is <emotion_scared> is interesting is is is <emotion_scared> is is is is colorful is is <emotion_scared> is <emotion_scared> is <emotion_scared> is <emotion_scared> is is is is is is colorful is is is <emotion_scared> is is is is is is interesting <emotion_scared> interesting is interesting is is is is <start> <emotion_scared> interesting <emotion_scared> interesting <emotion_scared> is is colorful"
+  },
+  {
+    "timestamp": "2026-03-22T14:44:15.675296",
+    "input": "<scenario_doctor_visit> <emotion_scared> <start>",
+    "generated_text": "<scenario_doctor_visit> <emotion_scared> <start> <emotion_scared> interesting interesting is <emotion_scared> is interesting is is is <emotion_scared> is is is is colorful is is <emotion_scared> is <emotion_scared> is <emotion_scared> is <emotion_scared> is is is is is is colorful is is is <emotion_scared> is is is is is is interesting <emotion_scared> interesting is interesting is is is is <start> <emotion_scared> interesting <emotion_scared> interesting <emotion_scared> is is colorful"
+  }
+]

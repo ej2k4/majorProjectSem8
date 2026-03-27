@@ -1,270 +1,264 @@
-# # import torch
-# # from model import TinyLSTM
-# # from utils import tokenize, build_vocab
+"""
+generate.py — LSTM Story Generation (v3)
 
-# # def generate(model, scenario_token, word2idx, idx2word, length=80):
-# #     model.eval()
-
-# #     input_word = torch.tensor([[word2idx[scenario_token]]])
-# #     result = [scenario_token]
-
-# #     hidden = None
-
-# #     for _ in range(length):
-# #         output, hidden = model(input_word, hidden)
-# #         probs = torch.softmax(output[0, -1], dim=0)
-# #         next_word_idx = torch.argmax(probs).item()
-# #         next_word = idx2word[next_word_idx]
-
-# #         result.append(next_word)
-# #         input_word = torch.tensor([[next_word_idx]])
-
-# #     return " ".join(result)
-
-
-# import torch
-# from model import TinyLSTM
-# from utils import tokenize, build_vocab
-
-# # Reload dataset for vocab
-# with open("dataset/stories.txt", "r") as f:
-#     text = f.read()
-
-# tokens = tokenize(text)
-# word2idx, idx2word = build_vocab(tokens)
-
-# vocab_size = len(word2idx)
-
-# model = TinyLSTM(vocab_size)
-# model.load_state_dict(torch.load("tiny_lstm.pth"))
-# model.eval()
-
-# def generate(seed_text, max_words=30):
-#     words = seed_text.lower().split()
-#     state = None
-
-#     for _ in range(max_words):
-#         input_ids = torch.tensor([[word2idx.get(w, 0) for w in words[-5:]]])
-#         output, state = model(input_ids, state)
-#         last_word_logits = output[0, -1]
-#         predicted_idx = torch.argmax(last_word_logits).item()
-#         next_word = idx2word[predicted_idx]
-#         words.append(next_word)
-
-#     return " ".join(words)
-
-# print(generate("<scenario_dentist> arjun"))
-
-
-# import torch
-# import json
-# from model import TinyLSTM
-
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# # Load vocab
-# with open("vocab.json", "r") as f:
-#     word2idx = json.load(f)
-
-# idx2word = {i: w for w, i in word2idx.items()}
-
-# # Load model
-# checkpoint = torch.load("tiny_lstm.pth", map_location=device)
-
-# model = TinyLSTM(checkpoint["vocab_size"]).to(device)
-# model.load_state_dict(checkpoint["model_state_dict"])
-# model.eval()
-
-# def generate(seed_text, max_words=60):
-#     words = seed_text.lower().split()
-#     state = None
-
-#     for _ in range(max_words):
-#         input_ids = torch.tensor(
-#             [[word2idx.get(w, word2idx.get("<unk>", 0)) for w in words[-10:]]]
-#         ).to(device)
-
-#         output, state = model(input_ids, state)
-
-#         logits = output[0, -1]
-
-#         #  Repetition penalty
-#         for word in set(words[-15:]):  # penalize recent words
-#             if word in word2idx:
-#                 logits[word2idx[word]] /= 1.5
-
-#         temperature = 0.75
-#         probs = torch.softmax(logits / temperature, dim=0)
-
-#         #  Top-k sampling
-#         top_k = 10
-#         top_probs, top_indices = torch.topk(probs, top_k)
-#         top_probs = top_probs / torch.sum(top_probs)
-
-#         predicted_idx = top_indices[torch.multinomial(top_probs, 1)].item()
-#         next_word = idx2word[predicted_idx]
-
-#         if next_word == "<end>":
-#             break
-
-#         words.append(next_word)
-
-#     return " ".join(words)
-
-
-
-# if __name__ == "__main__":
-#     user_name = input("Enter a name: ").strip().lower()
-#     scenario = input("Enter a scenario: ").strip().lower().replace(" ", "_")
-#     emotion = input("Enter current emotion: ").strip().lower().replace(" ", "_")
-#     scenario = scenario.replace(" ", "_")
-
-#     seed_text = f"<SCENARIO_{scenario}> <EMOTION_{emotion}> <NAME>"
-#     story = generate(seed_text)
-
-#     story = story.replace("<NAME>", user_name)
-#     story = story.replace(f"<SCENARIO_{scenario}>", "")
-#     story = story.replace(f"<EMOTION_{emotion}>", "")
-#     story = story.replace("<end>", "")
-#     story = story.strip()
-
-
-#     print("\nGenerated Story:\n")
-#     print(story)
-
-
+Changes from v2:
+  - Removed mid-generation section tag injection: it was causing
+    the model to restart sentence patterns mid-output, producing
+    "Jony can Jony can..." style repetition.
+  - Added scenario/emotion validator with fuzzy suggestions so
+    users get clear feedback on invalid inputs instead of silent
+    <unk> fallback.
+  - Repetition penalty now covers all recent tokens with a tiered
+    penalty: heavier for filler words, lighter for content words.
+  - Added hard sentence deduplication in post-processing to remove
+    repeated sentences that slip through sampling.
+  - Temperature lowered to 0.8 for more coherent output.
+"""
 
 import torch
 import json
 import re
+import os
+from datetime import datetime
+from difflib import get_close_matches
 from model import TinyLSTM
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# -----------------------
+LOG_PATH = "logs/generation_log.json"
+
+# ---------------------------------------------------------------------------
 # Load vocabulary
-# -----------------------
+# ---------------------------------------------------------------------------
 with open("vocab.json", "r") as f:
     word2idx = json.load(f)
 
-idx2word = {i: w for w, i in word2idx.items()}
+idx2word  = {i: w for w, i in word2idx.items()}
+UNK_IDX   = word2idx.get("<unk>", 0)
 
-# -----------------------
+KNOWN_SCENARIOS = sorted(
+    k.replace("<scenario_", "").replace(">", "")
+    for k in word2idx if k.startswith("<scenario_")
+)
+KNOWN_EMOTIONS = sorted(
+    k.replace("<emotion_", "").replace(">", "")
+    for k in word2idx if k.startswith("<emotion_")
+)
+
+
+def tok(word: str) -> int:
+    return word2idx.get(word.lower(), UNK_IDX)
+
+
+# ---------------------------------------------------------------------------
 # Load model
-# -----------------------
+# ---------------------------------------------------------------------------
 checkpoint = torch.load("tiny_lstm.pth", map_location=device)
-
 model = TinyLSTM(checkpoint["vocab_size"]).to(device)
 model.load_state_dict(checkpoint["model_state_dict"])
 model.eval()
 
 
-# -----------------------
-# Story Generation
-# -----------------------
-def generate(seed_text, max_words=80):
-    words = seed_text.lower().split()
+# ---------------------------------------------------------------------------
+# Input validation
+# ---------------------------------------------------------------------------
+def validate_input(scenario: str, emotion: str) -> tuple[bool, str]:
+    errors = []
+
+    if scenario not in KNOWN_SCENARIOS:
+        suggestions = get_close_matches(scenario, KNOWN_SCENARIOS, n=3, cutoff=0.5)
+        msg = f"Unknown scenario: '{scenario}'"
+        if suggestions:
+            msg += f"\n  Did you mean: {', '.join(suggestions)}?"
+        else:
+            msg += f"\n  Known scenarios: {', '.join(KNOWN_SCENARIOS)}"
+        errors.append(msg)
+
+    if emotion not in KNOWN_EMOTIONS:
+        suggestions = get_close_matches(emotion, KNOWN_EMOTIONS, n=3, cutoff=0.5)
+        msg = f"Unknown emotion: '{emotion}'"
+        if suggestions:
+            msg += f"\n  Did you mean: {', '.join(suggestions)}?"
+        else:
+            msg += f"\n  Known emotions: {', '.join(KNOWN_EMOTIONS)}"
+        errors.append(msg)
+
+    if errors:
+        return False, "\n".join(errors)
+    return True, ""
+
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+def log_generation(name, scenario, emotion, story):
+    os.makedirs("logs", exist_ok=True)
+    record = {
+        "timestamp": datetime.now().isoformat(),
+        "inputs": {"name": name, "scenario": scenario, "emotion": emotion},
+        "output": story,
+    }
+    if os.path.exists(LOG_PATH):
+        with open(LOG_PATH, "r") as f:
+            try:
+                log_data = json.load(f)
+            except json.JSONDecodeError:
+                log_data = []
+    else:
+        log_data = []
+    log_data.append(record)
+    with open(LOG_PATH, "w") as f:
+        json.dump(log_data, f, indent=2)
+    print(f"\n[Log saved] → {LOG_PATH}")
+
+
+# ---------------------------------------------------------------------------
+# Filler words — penalised more aggressively for repetition
+# ---------------------------------------------------------------------------
+FILLER_WORDS = {
+    "the", "a", "an", "is", "it", "in", "on", "to", "and",
+    "feels", "feel", "very", "slowly", "softly", "kindly",
+    "situation", "ends", "safely", "better", "today", "faces",
+}
+
+
+# ---------------------------------------------------------------------------
+# Generation
+# ---------------------------------------------------------------------------
+def generate_with_context(
+    scenario: str,
+    emotion: str,
+    max_words: int = 80,
+    temperature: float = 0.8,
+    top_k: int = 10,
+) -> list[str]:
+    """
+    Prime the LSTM on scenario + emotion anchor tokens, then generate
+    one token at a time with persistent hidden state.
+    """
+    anchor = [
+        f"<scenario_{scenario}>",
+        f"<emotion_{emotion}>",
+        "<name>",
+        "<start>",
+    ]
+
+    generated: list[str] = []
     state = None
 
-    for _ in range(max_words):
-        input_ids = torch.tensor(
-            [[word2idx.get(w, word2idx.get("<unk>", 0)) for w in words[-10:]]]
-        ).to(device)
+    # Prime hidden state on anchor tokens
+    for t in anchor:
+        idx_t = torch.tensor([[tok(t)]]).to(device)
+        with torch.no_grad():
+            _, state = model(idx_t, state)
 
-        output, state = model(input_ids, state)
+    last_token = "<start>"
 
-        logits = output[0, -1]
+    for step in range(max_words):
+        idx_t = torch.tensor([[tok(last_token)]]).to(device)
+        with torch.no_grad():
+            output, state = model(idx_t, state)
 
-        # Repetition penalty
-        for word in set(words[-15:]):
-            if word in word2idx:
-                logits[word2idx[word]] /= 1.5
+        logits = output[0, -1].clone()
 
-        temperature = 0.8
+        # Tiered repetition penalty
+        recent_set = set(generated[-20:])
+        for word in recent_set:
+            if word not in word2idx:
+                continue
+            penalty = 3.0 if word in FILLER_WORDS else 1.8
+            logits[word2idx[word]] /= penalty
+
+        # Encourage <end> after sufficient content
+        end_idx = word2idx.get("<end>")
+        if end_idx is not None and step > 55:
+            logits[end_idx] *= 1.8
+
         probs = torch.softmax(logits / temperature, dim=0)
-
-        # Top-k sampling
-        top_k = 10
         top_probs, top_indices = torch.topk(probs, top_k)
-        top_probs = top_probs / torch.sum(top_probs)
-
+        top_probs = top_probs / top_probs.sum()
         predicted_idx = top_indices[torch.multinomial(top_probs, 1)].item()
         next_word = idx2word[predicted_idx]
 
         if next_word == "<end>":
             break
 
-        words.append(next_word)
+        generated.append(next_word)
+        last_token = next_word
 
-    return " ".join(words)
+    return generated
 
 
-# -----------------------
-# Emotional Enrichment Layer
-# -----------------------
-def enrich_emotion(story, name, emotion):
-    emotional_lines = {
-        "excited": [
-            f"{name.capitalize()} feels butterflies of excitement inside.",
-            f"{name.capitalize()} cannot wait to see what happens next."
-        ],
-        "nervous": [
-            f"{name.capitalize()}'s heart beats a little faster.",
-            "It is okay to feel nervous sometimes."
-        ],
-        "sad": [
-            f"{name.capitalize()}'s eyes feel a little heavy.",
-            "It is okay to feel sad, and feelings can change."
-        ],
-        "angry": [
-            f"{name.capitalize()}'s hands feel tight for a moment.",
-            "Taking slow deep breaths can help big feelings."
-        ],
-        "scared": [
-            f"{name.capitalize()} feels a small shiver inside.",
-            "It is safe, and grown-ups are there to help."
-        ]
+# ---------------------------------------------------------------------------
+# Post-processing
+# ---------------------------------------------------------------------------
+def clean_story(tokens: list[str], name: str) -> str:
+    text = " ".join(tokens)
+
+    # Strip all control tags
+    text = re.sub(r"<scenario_[^>]+>", "", text)
+    text = re.sub(r"<emotion_[^>]+>",  "", text)
+    text = re.sub(r"</?(?:start|feeling|event|coping|ending|end)>", "", text)
+    text = re.sub(r"<name>", name.capitalize(), text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Capitalise + deduplicate sentences
+    raw_sentences = [s.strip() for s in text.split(".") if len(s.strip()) > 5]
+    seen = set()
+    sentences = []
+    for s in raw_sentences:
+        if s.lower().strip() not in seen:
+            seen.add(s.lower().strip())
+            sentences.append(s[0].upper() + s[1:] if s else s)
+
+    return ". ".join(sentences) + "."
+
+
+def enrich_emotion(story: str, name: str, emotion: str) -> str:
+    closings = {
+        "excited":     f"{name.capitalize()} feels proud and happy.",
+        "nervous":     f"It is okay to feel nervous. {name.capitalize()} was brave.",
+        "sad":         f"Feelings can change. {name.capitalize()} feels a little better now.",
+        "angry":       f"Big feelings are okay. {name.capitalize()} took a deep breath.",
+        "scared":      f"{name.capitalize()} was safe the whole time.",
+        "worried":     f"Things worked out okay for {name.capitalize()}.",
+        "overwhelmed": f"{name.capitalize()} took it one step at a time.",
+        "shy":         f"{name.capitalize()} did it, even though it felt hard.",
     }
-
-    if emotion in emotional_lines:
-        extra = " ".join(emotional_lines[emotion])
-        story = extra + " " + story
-
+    closing = closings.get(emotion, "")
+    if closing:
+        story = story.rstrip(".") + ". " + closing
     return story
 
 
-# -----------------------
-# Main Execution
-# -----------------------
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    user_name = input("Enter a name: ").strip().lower()
-    scenario = input("Enter a scenario: ").strip().lower().replace(" ", "_")
-    emotion = input("Enter current emotion: ").strip().lower().replace(" ", "_")
+    print(f"\nKnown scenarios: {', '.join(KNOWN_SCENARIOS)}")
+    print(f"Known emotions:  {', '.join(KNOWN_EMOTIONS)}\n")
 
-    # Improved seed structure
-    seed_text = f"<scenario_{scenario}> <emotion_{emotion}> <name> </start>"
+    user_name = input("Enter child's name: ").strip()
+    scenario  = input("Enter scenario: ").strip().lower().replace(" ", "_")
+    emotion   = input("Enter emotion: ").strip().lower().replace(" ", "_")
 
-    story = generate(seed_text)
+    valid, error_msg = validate_input(scenario, emotion)
+    if not valid:
+        print(f"\n[Error]\n{error_msg}")
+        exit(1)
 
-    # Replace name
-    story = story.replace("<name>", user_name)
+    print(f"\nGenerating story for scenario='{scenario}', emotion='{emotion}'…\n")
 
-    # Remove scenario & emotion tags
-    story = story.replace(f"<scenario_{scenario}>", "")
-    story = story.replace(f"<emotion_{emotion}>", "")
+    raw_tokens = generate_with_context(scenario, emotion)
+    story      = clean_story(raw_tokens, user_name)
+    story      = enrich_emotion(story, user_name, emotion)
 
-    # Remove ALL remaining tags
-    story = re.sub(r"<.*?>", "", story)
-
-    # Clean extra spaces
-    story = re.sub(r"\s+", " ", story).strip()
-
-    # Add emotional richness
-    story = enrich_emotion(story, user_name, emotion)
-
-    # Improve formatting
-    sentences = [s.strip().capitalize() for s in story.split(".") if s.strip()]
-    story = ". ".join(sentences) + "."
-
-    print("\nGenerated Story:\n")
+    print("Generated Story:\n")
     print(story)
+
+    log_generation(
+        name=user_name,
+        scenario=scenario,
+        emotion=emotion,
+        story=story,
+    )

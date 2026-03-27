@@ -1,0 +1,110 @@
+[
+  {
+    "timestamp": "2026-03-23T08:28:41.895425",
+    "inputs": {
+      "name": "jo",
+      "scenario": "haircut",
+      "emotion": "scared"
+    },
+    "output": "Jo feels a small shiver inside. It is safe, and grown-ups are there to help. Jo jo feels scared. The routine changes. A new teacher stands in class. Jo can look at the schedule. Jo can breathe slowly. The situation ends safely. Jo feels better."
+  },
+  {
+    "timestamp": "2026-03-23T22:22:55.385637",
+    "inputs": {
+      "name": "jo",
+      "scenario": "dental_visit",
+      "emotion": "nervous"
+    },
+    "output": "Jo's heart beats a little faster. It is okay to feel nervous sometimes. Jo jo feels excited. The teacher smiles kindly. The classroom looks the same. Jo can say hello softly. Jo can sit calmly. The situation ends safely. Jo feels better."
+  },
+  {
+    "timestamp": "2026-03-23T22:36:34.513310",
+    "inputs": {
+      "name": "jo",
+      "scenario": "haircut",
+      "emotion": "nervous"
+    },
+    "output": "Jo haircut. Jo feels nervous. The chair turns gently. Hair falls slowly. Jo can look in the mirror. Jo can take deep breaths. The situation ends safely. Jo feels better. It is okay to feel nervous. Jo was brave."
+  },
+  {
+    "timestamp": "2026-03-23T22:36:59.493949",
+    "inputs": {
+      "name": "jo",
+      "scenario": "dentist_visit",
+      "emotion": "scared"
+    },
+    "output": "Jo today, Jo faces swimming pool. Jo feels scared. The water looks deep. Children splash loudly. Jo can take deep breaths. Jo can hold the pool edge. The situation ends safely. Jo feels better. Jo was safe the whole time."
+  },
+  {
+    "timestamp": "2026-03-23T22:38:07.826545",
+    "inputs": {
+      "name": "krishna",
+      "scenario": "swimming",
+      "emotion": "excited"
+    },
+    "output": "Krishna take Krishna feels worried. Everyone claps. Another child wins. Krishna can say good job. Krishna can remember games are for fun. The situation ends safely. Krishna feels better. Krishna feels proud and happy."
+  },
+  {
+    "timestamp": "2026-03-23T22:39:09.764237",
+    "inputs": {
+      "name": "jony",
+      "scenario": "art_class",
+      "emotion": "angry"
+    },
+    "output": "Jony speak toys. Jony feels nervous. The teacher watches kindly. Taking turns feels hard. Jony can count slowly. Jony can breathe calmly. The situation ends safely. Jony feels better. Big feelings are okay. Jony took a deep breath."
+  },
+  {
+    "timestamp": "2026-03-23T22:52:37.246829",
+    "inputs": {
+      "name": "jony",
+      "scenario": "haircut",
+      "emotion": "scared"
+    },
+    "output": "Jony feels sad. Another child wins. Scores are announced. Jony can try again later. Jony can Jony can take slow breaths. Jony can remember games are for fun. The situation ends safely. Jony feels Jony feels better. Jony was safe the whole time."
+  },
+  {
+    "timestamp": "2026-03-23T22:53:00.706888",
+    "inputs": {
+      "name": "jony",
+      "scenario": "swimming",
+      "emotion": "excited"
+    },
+    "output": "Jony feels excited. The chair moves slowly. There is a bright light. Jony can listen to Jony can take slow breaths. Jony can hold the chair gently. The situation ends safely. Jony feels better. Jony can keep to five. Jony can take deep breaths. The situation ends safely. Jony feels better. Jony feels proud and happy."
+  },
+  {
+    "timestamp": "2026-03-23T22:56:04.172147",
+    "inputs": {
+      "name": "jony",
+      "scenario": "new_teacher",
+      "emotion": "angry"
+    },
+    "output": "Today, Jony faces new teacher. Jony feels angry. The teacher explains the rules. The voice sounds different. Jony can take slow breaths. Jony can say hello softly. The situation ends safely. Jony feels better. Big feelings are okay. Jony took a deep breath."
+  },
+  {
+    "timestamp": "2026-03-23T22:57:04.828551",
+    "inputs": {
+      "name": "jony",
+      "scenario": "school_bus",
+      "emotion": "scared"
+    },
+    "output": "Today, Jony faces school bus. Jony feels scared. Children are talking. The driver watches carefully. Jony can look out the window. Jony can hold a comfort toy. The situation ends safely. Jony feels better. Jony was safe the whole time."
+  },
+  {
+    "timestamp": "2026-03-23T22:57:32.707332",
+    "inputs": {
+      "name": "sharing_toys",
+      "scenario": "sharing_toys",
+      "emotion": "worried"
+    },
+    "output": "Conflict. Sharing_toys feels worried. A friend says something unkind. Two children want the same swing. Sharing_toys can take slow breaths. Sharing_toys can use calm words. The situation ends safely. Sharing_toys feels better. Things worked out okay for Sharing_toys."
+  },
+  {
+    "timestamp": "2026-03-23T23:00:20.093364",
+    "inputs": {
+      "name": "jony",
+      "scenario": "moving_house",
+      "emotion": "overwhelmed"
+    },
+    "output": "Today, Jony faces moving house. Jony feels overwhelmed. New neighbors live nearby. Rooms look different. Jony can talk about feelings. Jony can keep favorite toys close. The situation ends safely. Jony feels better. Jony took it one step at a time."
+  }
+]

@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Learn & Play</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --math-color:    #3B82F6;
+    --science-color: #10B981;
+    --social-color:  #F59E0B;
+    --correct:       #10B981;
+    --wrong:         #EF4444;
+    --bg:            #F0F4FF;
+    --card:          #FFFFFF;
+    --text:          #1E293B;
+    --muted:         #64748B;
+    --radius:        20px;
+    --module-color:  #3B82F6;
+  }
+
+  body {
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 16px;
+    color: var(--text);
+  }
+
+  /* ── SCREENS ── */
+  .screen { width: 100%; max-width: 480px; display: none; flex-direction: column; align-items: center; gap: 16px; }
+  .screen.active { display: flex; }
+
+  /* ── HOME ── */
+  .logo { font-size: 56px; margin-top: 24px; }
+  .app-title { font-size: 32px; font-weight: 800; color: var(--text); }
+  .app-sub   { font-size: 16px; color: var(--muted); }
+
+  .name-input {
+    width: 100%; padding: 16px 20px; font-size: 20px;
+    border: 3px solid #E2E8F0; border-radius: var(--radius);
+    outline: none; text-align: center;
+    transition: border-color .2s;
+  }
+  .name-input:focus { border-color: var(--module-color); }
+
+  .module-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; width: 100%; }
+
+  .module-btn {
+    padding: 20px 8px; border: 3px solid transparent;
+    border-radius: var(--radius); background: var(--card);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: transform .15s, border-color .15s, box-shadow .15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  }
+  .module-btn .icon { font-size: 36px; }
+  .module-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+  .module-btn.selected { border-color: var(--module-color); background: #EFF6FF; }
+  .module-btn[data-module="math"]    { --module-color: var(--math-color); }
+  .module-btn[data-module="science"] { --module-color: var(--science-color); }
+  .module-btn[data-module="social"]  { --module-color: var(--social-color); }
+  .module-btn.selected { border-color: var(--module-color); }
+
+  /* ── BIG BUTTON ── */
+  .btn {
+    width: 100%; padding: 18px; font-size: 20px; font-weight: 800;
+    border: none; border-radius: var(--radius); cursor: pointer;
+    transition: transform .15s, opacity .15s; color: #fff;
+    background: var(--module-color);
+  }
+  .btn:hover   { opacity: .92; transform: translateY(-1px); }
+  .btn:active  { transform: translateY(0); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+  /* ── GAME SCREEN ── */
+  .top-bar {
+    width: 100%; display: flex; align-items: center;
+    justify-content: space-between; padding: 8px 0;
+  }
+  .xp-badge {
+    background: #FEF3C7; color: #92400E; border-radius: 99px;
+    padding: 6px 14px; font-weight: 700; font-size: 15px;
+  }
+  .diff-badge {
+    border-radius: 99px; padding: 6px 14px;
+    font-weight: 700; font-size: 13px; color: #fff;
+  }
+  .diff-1 { background: #10B981; }
+  .diff-2 { background: #F59E0B; }
+  .diff-3 { background: #EF4444; }
+
+  .progress-bar {
+    width: 100%; height: 10px; background: #E2E8F0;
+    border-radius: 99px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 99px;
+    background: var(--module-color);
+    transition: width .4s ease;
+  }
+
+  /* ── QUESTION CARD ── */
+  .q-card {
+    width: 100%; background: var(--card); border-radius: var(--radius);
+    padding: 24px 20px; box-shadow: 0 4px 20px rgba(0,0,0,.08);
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .visual-hint { font-size: 52px; }
+  .q-text {
+    font-size: 20px; font-weight: 700; text-align: center;
+    line-height: 1.4; color: var(--text);
+  }
+
+  /* ── ANSWER OPTIONS ── */
+  .options { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .opt-btn {
+    padding: 18px 12px; font-size: 16px; font-weight: 600;
+    border: 3px solid #E2E8F0; border-radius: var(--radius);
+    background: var(--card); cursor: pointer; text-align: center;
+    transition: transform .12s, border-color .12s, background .12s;
+    line-height: 1.3;
+  }
+  .opt-btn:hover:not(:disabled) { border-color: var(--module-color); transform: scale(1.02); }
+  .opt-btn:disabled { cursor: default; }
+  .opt-btn.correct  { background: #D1FAE5; border-color: var(--correct); color: #065F46; }
+  .opt-btn.wrong    { background: #FEE2E2; border-color: var(--wrong);   color: #991B1B; }
+
+  /* ── FEEDBACK ── */
+  .feedback {
+    width: 100%; padding: 16px; border-radius: var(--radius);
+    text-align: center; font-size: 18px; font-weight: 700;
+    display: none;
+  }
+  .feedback.correct { background: #D1FAE5; color: #065F46; display: block; }
+  .feedback.wrong   { background: #FEE2E2; color: #991B1B; display: block; }
+
+  .reward-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: #1E293B; color: #fff; padding: 14px 24px; border-radius: 99px;
+    font-size: 16px; font-weight: 700; transition: transform .3s ease;
+    z-index: 100; white-space: nowrap;
+  }
+  .reward-toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── END SCREEN ── */
+  .trophy { font-size: 80px; margin-top: 16px; }
+  .score-card {
+    width: 100%; background: var(--card); border-radius: var(--radius);
+    padding: 28px 24px; text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  .score-num  { font-size: 64px; font-weight: 900; color: var(--module-color); }
+  .score-lbl  { font-size: 16px; color: var(--muted); margin-top: 4px; }
+  .badges-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+  .badge-pill {
+    background: #FEF3C7; color: #92400E;
+    padding: 6px 14px; border-radius: 99px; font-size: 14px; font-weight: 600;
+  }
+
+  /* ── LOADING ── */
+  .loader {
+    width: 40px; height: 40px; border: 4px solid #E2E8F0;
+    border-top-color: var(--module-color); border-radius: 50%;
+    animation: spin .8s linear infinite; margin: 32px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg { color: var(--wrong); font-size: 15px; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HOME SCREEN ══════════════ -->
+<div id="screen-home" class="screen active">
+  <div class="logo">🎮</div>
+  <div class="app-title">Learn & Play</div>
+  <div class="app-sub">Tap a module and start learning!</div>
+
+  <input class="name-input" id="player-name" type="text"
+         placeholder="What's your name?" maxlength="20" autocomplete="off">
+
+  <div class="module-grid">
+    <button class="module-btn" data-module="math" onclick="selectModule('math', this)">
+      <span class="icon">🔢</span>
+      <span>Maths</span>
+    </button>
+    <button class="module-btn" data-module="science" onclick="selectModule('science', this)">
+      <span class="icon">🔭</span>
+      <span>Science</span>
+    </button>
+    <button class="module-btn" data-module="social" onclick="selectModule('social', this)">
+      <span class="icon">💛</span>
+      <span>Social</span>
+    </button>
+  </div>
+
+  <button class="btn" id="start-btn" onclick="startGame()" disabled>Let's Go!</button>
+  <p class="error-msg" id="home-error"></p>
+</div>
+
+<!-- ══════════════ GAME SCREEN ══════════════ -->
+<div id="screen-game" class="screen">
+  <div class="top-bar">
+    <span class="xp-badge">⭐ <span id="xp-count">0</span> XP</span>
+    <span class="diff-badge diff-1" id="diff-label">Easy</span>
+    <span style="font-size:14px;color:var(--muted)"><span id="q-count">0</span>/10</span>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+
+  <div class="q-card" id="q-card">
+    <div class="loader" id="q-loader"></div>
+  </div>
+
+  <div class="options" id="options-grid"></div>
+  <div class="feedback" id="feedback-box"></div>
+</div>
+
+<!-- ══════════════ END SCREEN ══════════════ -->
+<div id="screen-end" class="screen">
+  <div class="trophy">🏆</div>
+  <div class="app-title">Well done!</div>
+  <div class="score-card">
+    <div class="score-num" id="final-score">0</div>
+    <div class="score-lbl">correct out of <span id="final-total">10</span></div>
+    <div class="score-lbl" style="margin-top:8px">Total XP: <strong id="final-xp">0</strong></div>
+    <div class="badges-row" id="badges-row"></div>
+  </div>
+  <button class="btn" onclick="goHome()">Play Again!</button>
+</div>
+
+<!-- ══════════════ TOAST ══════════════ -->
+<div class="reward-toast" id="toast"></div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const API = 'http://localhost:8000';
+const MAX_QUESTIONS = 10;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let state = {
+  studentId:    null,
+  sessionId:    null,
+  module:       null,
+  currentQ:     null,
+  difficulty:   1,
+  qCount:       0,
+  correctCount: 0,
+  totalXp:      0,
+  badges:       [],
+  startTime:    null,
+  totalRt:      0,
+  answered:     false,
+};
+
+// ── Module selection ───────────────────────────────────────────────────────
+function selectModule(mod, el) {
+  state.module = mod;
+  document.querySelectorAll('.module-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('start-btn').disabled = false;
+  const colors = { math: '#3B82F6', science: '#10B981', social: '#F59E0B' };
+  document.documentElement.style.setProperty('--module-color', colors[mod]);
+}
+
+// ── Screens ────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+// ── Start game ─────────────────────────────────────────────────────────────
+async function startGame() {
+  const name = document.getElementById('player-name').value.trim() || 'Player';
+  document.getElementById('home-error').textContent = '';
+
+  // Stable student ID per name (simple hash — use auth in production)
+  state.studentId    = 'student_' + btoa(name).replace(/[^a-z0-9]/gi, '').slice(0, 12);
+  state.qCount       = 0;
+  state.correctCount = 0;
+  state.totalXp      = 0;
+  state.badges       = [];
+  state.totalRt      = 0;
+  state.answered     = false;
+
+  showScreen('game');
+  updateTopBar();
+  showLoader();
+
+  try {
+    const res = await fetch(`${API}/session/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_id: state.studentId, module: state.module,
+                             name, age: 5 })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    state.sessionId = data.session_id;
+    state.difficulty = data.difficulty;
+    renderQuestion(data.question);
+  } catch (e) {
+    showLoader(false);
+    document.getElementById('home-error').textContent = 'Cannot connect to API. Is it running?';
+    showScreen('home');
+  }
+}
+
+// ── Render question ────────────────────────────────────────────────────────
+function renderQuestion(q) {
+  state.currentQ = q;
+  state.answered = false;
+  state.startTime = Date.now();
+
+  const card = document.getElementById('q-card');
+  card.innerHTML = `
+    <div class="visual-hint">${q.visual_hint || ''}</div>
+    <div class="q-text">${q.question_text}</div>
+  `;
+
+  // Shuffle options
+  const opts = Object.entries(q.answer_options);  // [["A","..."], ...]
+  shuffle(opts);
+
+  const grid = document.getElementById('options-grid');
+  grid.innerHTML = '';
+  opts.forEach(([key, text]) => {
+    const btn = document.createElement('button');
+    btn.className = 'opt-btn';
+    btn.textContent = text;
+    btn.dataset.key = key;
+    btn.onclick = () => handleAnswer(btn, key, text);
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('feedback-box').className = 'feedback';
+  updateTopBar();
+}
+
+function showLoader(show = true) {
+  const card = document.getElementById('q-card');
+  if (show) {
+    card.innerHTML = '<div class="loader"></div>';
+    document.getElementById('options-grid').innerHTML = '';
+  }
+}
+
+// ── Answer handling ────────────────────────────────────────────────────────
+async function handleAnswer(btn, key, text) {
+  if (state.answered) return;
+  state.answered = true;
+
+  const rt = (Date.now() - state.startTime) / 1000;
+  state.totalRt += rt;
+
+  const q = state.currentQ;
+  const isCorrect = (text === q.correct_answer);
+
+  // Disable all buttons and colour them
+  document.querySelectorAll('.opt-btn').forEach(b => {
+    b.disabled = true;
+    if (b.textContent === q.correct_answer) b.classList.add('correct');
+    else if (b === btn && !isCorrect)        b.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('feedback-box');
+  fb.textContent = isCorrect ? '✅ Correct! Well done!' : `❌ The answer was: ${q.correct_answer}`;
+  fb.className   = 'feedback ' + (isCorrect ? 'correct' : 'wrong');
+
+  if (isCorrect) state.correctCount++;
+  state.qCount++;
+
+  // Submit to API
+  try {
+    const res = await fetch(`${API}/session/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id:        state.sessionId,
+        student_id:        state.studentId,
+        question_id:       q.question_id,
+        module:            q.module,
+        topic:             q.topic,
+        difficulty:        q.difficulty,
+        answer_given:      text,
+        is_correct:        isCorrect,
+        response_time_sec: rt,
+        attempt_number:    1,
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.difficulty = data.next_difficulty;
+      handleRewards(data.rewards);
+
+      // Wait 1.4s then next question or end
+      setTimeout(() => {
+        if (state.qCount >= MAX_QUESTIONS) {
+          endGame();
+        } else if (data.next_question) {
+          renderQuestion(data.next_question);
+        } else {
+          endGame();
+        }
+      }, 1400);
+    } else {
+      setTimeout(() => { if (state.qCount >= MAX_QUESTIONS) endGame(); }, 1400);
+    }
+  } catch {
+    setTimeout(() => { if (state.qCount >= MAX_QUESTIONS) endGame(); }, 1400);
+  }
+
+  updateTopBar();
+}
+
+// ── Rewards ────────────────────────────────────────────────────────────────
+function handleRewards(rewards) {
+  if (!rewards || !rewards.length) return;
+  rewards.forEach(r => {
+    if (r.type === 'xp') state.totalXp += (r.value || 0);
+    if (r.type === 'badge' && !state.badges.includes(r.value)) {
+      state.badges.push(r.value);
+    }
+    showToast(r.message);
+  });
+  document.getElementById('xp-count').textContent = state.totalXp;
+}
+
+let _toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── Top bar update ─────────────────────────────────────────────────────────
+function updateTopBar() {
+  document.getElementById('xp-count').textContent  = state.totalXp;
+  document.getElementById('q-count').textContent   = state.qCount;
+  const pct = (state.qCount / MAX_QUESTIONS) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+
+  const dl = document.getElementById('diff-label');
+  dl.textContent = ['', 'Easy', 'Medium', 'Hard'][state.difficulty] || 'Easy';
+  dl.className   = 'diff-badge diff-' + state.difficulty;
+}
+
+// ── End game ───────────────────────────────────────────────────────────────
+async function endGame() {
+  const avgRt = state.qCount > 0 ? state.totalRt / state.qCount : 0;
+  try {
+    await fetch(`${API}/session/end`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id:       state.sessionId,
+        student_id:       state.studentId,
+        total_correct:    state.correctCount,
+        total_questions:  state.qCount,
+        avg_response_sec: avgRt,
+      })
+    });
+  } catch {}
+
+  document.getElementById('final-score').textContent = state.correctCount;
+  document.getElementById('final-total').textContent = state.qCount;
+  document.getElementById('final-xp').textContent    = state.totalXp;
+
+  const badgeRow = document.getElementById('badges-row');
+  badgeRow.innerHTML = state.badges.length
+    ? state.badges.map(b => `<span class="badge-pill">${b}</span>`).join('')
+    : '<span style="color:var(--muted);font-size:14px">Play more to earn badges!</span>';
+
+  showScreen('end');
+}
+
+// ── Go home ────────────────────────────────────────────────────────────────
+function goHome() {
+  document.querySelectorAll('.module-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('start-btn').disabled = true;
+  state.module = null;
+  showScreen('home');
+}
+
+// ── Utility ────────────────────────────────────────────────────────────────
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// Auto-enable start when name typed
+document.getElementById('player-name').addEventListener('input', () => {
+  if (state.module) document.getElementById('start-btn').disabled = false;
+});
+</script>
+</body>
+</html>

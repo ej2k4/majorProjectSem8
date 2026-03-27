@@ -1,50 +1,25 @@
-# import torch
-# import torch.nn as nn
-
-# class Discriminator(nn.Module):
-#     def __init__(self, num_classes, img_channels=3):
-#         super(Discriminator, self).__init__()
-
-#         self.label_emb = nn.Embedding(num_classes, num_classes)
-
-#         self.model = nn.Sequential(
-#             nn.Conv2d(img_channels + 1, 64, 4, stride=2, padding=1),
-#             nn.LeakyReLU(0.2, inplace=True),
-
-#             nn.Conv2d(64, 128, 4, stride=2, padding=1),
-#             nn.BatchNorm2d(128),
-#             nn.LeakyReLU(0.2, inplace=True),
-
-#             nn.Conv2d(128, 256, 4, stride=2, padding=1),
-#             nn.BatchNorm2d(256),
-#             nn.LeakyReLU(0.2, inplace=True),
-
-#             nn.Flatten(),
-#             nn.Linear(256 * 4 * 4, 1),
-#             nn.Sigmoid()
-#         )
-
-#     def forward(self, img, labels):
-#         label_map = self.label_emb(labels).unsqueeze(2).unsqueeze(3)
-#         label_map = label_map.repeat(1, 1, img.size(2), img.size(3))
-#         d_in = torch.cat((img, label_map[:, :1, :, :]), 1)
-#         validity = self.model(d_in)
-#         return validity
-
-
 import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
-    def __init__(self, num_classes, img_channels=3):
+    def __init__(self, num_scenarios, num_emotions, img_channels=3):
+        """
+        Discriminator for conditional adversarial learning
+        
+        Args:
+            num_scenarios: Number of scenario classes
+            num_emotions: Number of emotion classes
+            img_channels: Number of image channels (3 for RGB)
+        """
         super(Discriminator, self).__init__()
 
-        self.label_emb = nn.Embedding(num_classes, num_classes)
+        # Separate embeddings for scenario and emotion
+        self.scenario_emb = nn.Embedding(num_scenarios, num_scenarios)
+        self.emotion_emb = nn.Embedding(num_emotions, num_emotions)
 
         self.model = nn.Sequential(
-
             # 64x64 → 32x32
-            nn.Conv2d(img_channels + num_classes, 64, 4, stride=2, padding=1),
+            nn.Conv2d(img_channels + num_scenarios + num_emotions, 64, 4, stride=2, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
 
             # 32x32 → 16x16
@@ -69,11 +44,29 @@ class Discriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, img, labels):
-        label_embedding = self.label_emb(labels)
-        label_embedding = label_embedding.unsqueeze(2).unsqueeze(3)
-        label_embedding = label_embedding.repeat(1, 1, img.size(2), img.size(3))
+    def forward(self, img, scenario_labels, emotion_labels):
+        """
+        Discriminate images conditioned on scenario and emotion
+        
+        Args:
+            img: Image tensor of shape (batch_size, 3, 64, 64)
+            scenario_labels: Scenario class indices of shape (batch_size,)
+            emotion_labels: Emotion class indices of shape (batch_size,)
+            
+        Returns:
+            Discriminator output (real/fake probability)
+        """
+        scenario_embedding = self.scenario_emb(scenario_labels)
+        emotion_embedding = self.emotion_emb(emotion_labels)
 
-        d_in = torch.cat((img, label_embedding), 1)
+        # Expand embeddings to spatial dimensions
+        scenario_embedding = scenario_embedding.unsqueeze(2).unsqueeze(3)
+        emotion_embedding = emotion_embedding.unsqueeze(2).unsqueeze(3)
+
+        scenario_embedding = scenario_embedding.repeat(1, 1, img.size(2), img.size(3))
+        emotion_embedding = emotion_embedding.repeat(1, 1, img.size(2), img.size(3))
+
+        # Concatenate image with both embeddings
+        d_in = torch.cat((img, scenario_embedding, emotion_embedding), 1)
         validity = self.model(d_in)
         return validity

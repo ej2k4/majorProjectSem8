@@ -9,7 +9,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # -------------------
 # Load Dataset
 # -------------------
-df = pd.read_csv(r"data/asd_dataset.csv")
+df = pd.read_csv(r"asd_dataset.csv")
 
 sentences = list(df["fragmented_input"]) + list(df["corrected_output"])
 
