@@ -106,5 +106,14 @@
       "emotion": "overwhelmed"
     },
     "output": "Today, Jony faces moving house. Jony feels overwhelmed. New neighbors live nearby. Rooms look different. Jony can talk about feelings. Jony can keep favorite toys close. The situation ends safely. Jony feels better. Jony took it one step at a time."
+  },
+  {
+    "timestamp": "2026-03-27T22:32:54.149002",
+    "inputs": {
+      "name": "jony",
+      "scenario": "waiting_in_line",
+      "emotion": "worried"
+    },
+    "output": "Today, Jony faces waiting in line. Jony feels worried. It takes time. The line moves slowly. Jony can look at a book. Jony can take deep breaths. The situation ends safely. Jony feels better. Things worked out okay for Jony."
   }
 ]
