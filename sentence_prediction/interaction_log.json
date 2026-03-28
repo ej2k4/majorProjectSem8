@@ -48,5 +48,10 @@
         "input": "fuck",
         "prediction": "i like to play with my sister",
         "timestamp": "2026-03-27 17:03:08"
+    },
+    {
+        "input": "toy",
+        "prediction": "i am angry because my sister broke my toy",
+        "timestamp": "2026-03-28 13:25:53"
     }
 ]
