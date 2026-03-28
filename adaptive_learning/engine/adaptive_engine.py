@@ -17,13 +17,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from data.models import (
+from adaptive_learning.data.models import (
     StudentFeatures, PredictionOutput, Difficulty,
     RLState, RLAction, AccuracyBucket
 )
-from models.performance_model import PerformanceModel, ModelRegistry
-from models.clustering_model  import BehaviourClusterer, CLUSTER_STRATEGY
-from models.rl_agent          import QLearningAgent
+from adaptive_learning.models.performance_model import PerformanceModel, ModelRegistry
+from adaptive_learning.models.clustering_model  import BehaviourClusterer, CLUSTER_STRATEGY
+from adaptive_learning.models.rl_agent          import QLearningAgent
 
 
 @dataclass

@@ -8,7 +8,7 @@ Handles cold-start (< 5 events) by returning warmup defaults.
 from __future__ import annotations
 from typing import Optional
 import numpy as np
-from data.models import (
+from adaptive_learning.data.models import (
     RawEvent, StudentFeatures, Module, Difficulty
 )
 

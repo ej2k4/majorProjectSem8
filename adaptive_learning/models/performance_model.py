@@ -26,7 +26,7 @@ from sklearn.metrics import roc_auc_score, accuracy_score
 # Uncomment when upgrading to phase 2:
 # from xgboost import XGBClassifier
 
-from data.models import (
+from adaptive_learning.data.models import (
     StudentFeatures, PredictionOutput, Difficulty
 )
 

@@ -21,7 +21,7 @@ import os
 import random
 from typing import Optional
 
-from data.models import (
+from adaptive_learning.data.models import (
     RLState, RLAction, Difficulty, AccuracyBucket, StudentFeatures
 )
 

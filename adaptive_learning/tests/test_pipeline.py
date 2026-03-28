@@ -11,15 +11,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import numpy as np
 import pytest
 
-from data.models import (
+from adaptive_learning.data.models import (
     Module, Difficulty, RawEvent, StudentFeatures, RLState, RLAction, AccuracyBucket
 )
-from data.feature_engineering import FeatureEngineer, WARMUP_THRESHOLD
-from models.performance_model import PerformanceModel, ModelRegistry
-from models.clustering_model  import BehaviourClusterer, build_cluster_features
-from models.rl_agent          import QLearningAgent
-from engine.adaptive_engine   import AdaptiveEngine
-from engine.reward_engine     import RewardEngine
+from adaptive_learning.data.feature_engineering import FeatureEngineer, WARMUP_THRESHOLD
+from adaptive_learning.models.performance_model import PerformanceModel, ModelRegistry
+from adaptive_learning.models.clustering_model  import BehaviourClusterer, build_cluster_features
+from adaptive_learning.models.rl_agent          import QLearningAgent
+from adaptive_learning.engine.adaptive_engine   import AdaptiveEngine
+from adaptive_learning.engine.reward_engine     import RewardEngine
 
 
 # ─────────────────────────────────────────────────────────────

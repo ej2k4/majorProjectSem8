@@ -10,18 +10,18 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from data.models              import Module, Difficulty, RawEvent
-from data.feature_engineering import FeatureEngineer
-from data.database            import (
+from adaptive_learning.data.models              import Module, Difficulty, RawEvent
+from adaptive_learning.data.feature_engineering import FeatureEngineer
+from adaptive_learning.data.database            import (
     get_or_create_student, get_student_stats, get_student_cluster,
     get_random_question, create_session, close_session,
     log_event, log_reward, get_student_profile as db_get_profile,
 )
-from engine.adaptive_engine   import AdaptiveEngine
-from engine.reward_engine     import RewardEngine
-from models.performance_model import ModelRegistry
-from models.clustering_model  import BehaviourClusterer
-from models.rl_agent          import QLearningAgent
+from adaptive_learning.engine.adaptive_engine   import AdaptiveEngine
+from adaptive_learning.engine.reward_engine     import RewardEngine
+from adaptive_learning.models.performance_model import ModelRegistry
+from adaptive_learning.models.clustering_model  import BehaviourClusterer
+from adaptive_learning.models.rl_agent          import QLearningAgent
 
 app = FastAPI(title="Adaptive Learning API", version="2.0.0")
 @app.get("/")
@@ -220,7 +220,7 @@ def get_student_profile_endpoint(student_id: str):
 
 @app.post("/admin/train")
 def retrain_models():
-    from models.training_pipeline import train_supervised, train_clusterer
+    from adaptive_learning.models.training_pipeline import train_supervised, train_clusterer
     return {"supervised": train_supervised(ARTIFACT_DIR),
             "clustering": train_clusterer(ARTIFACT_DIR)}
 

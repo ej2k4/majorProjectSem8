@@ -19,10 +19,10 @@ import random
 import numpy as np
 from datetime import datetime
 
-from models.performance_model import PerformanceModel, ModelRegistry
-from models.clustering_model  import BehaviourClusterer, build_cluster_features
-from models.rl_agent          import QLearningAgent
-from data.models              import Module, Difficulty
+from adaptive_learning.models.performance_model import PerformanceModel, ModelRegistry
+from adaptive_learning.models.clustering_model  import BehaviourClusterer, build_cluster_features
+from adaptive_learning.models.rl_agent          import QLearningAgent
+from adaptive_learning.data.models              import Module, Difficulty
 
 
 ARTIFACT_DIR = "artifacts"

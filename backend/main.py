@@ -12,14 +12,28 @@ import os
 import json
 import re
 from datetime import datetime
+import uuid
+
+# Adaptive Learning imports
+from adaptive_learning.data.models import Module, Difficulty, RawEvent
+from adaptive_learning.data.feature_engineering import FeatureEngineer
+from adaptive_learning.data.database import (
+    get_or_create_student, get_student_stats, get_student_cluster,
+    get_random_question, create_session, close_session
+)
+from adaptive_learning.engine.adaptive_engine import AdaptiveEngine
+from adaptive_learning.engine.reward_engine import RewardEngine
+from adaptive_learning.models.performance_model import ModelRegistry
+from adaptive_learning.models.clustering_model import BehaviourClusterer
+from adaptive_learning.models.rl_agent import QLearningAgent
 
 # ---- Models ----
 from sentence_prediction.model import Encoder, Decoder, Seq2Seq
 from cartoonImage_model.generator import Generator
-from text_model.model import TinyLSTM   # adjust folder if needed
+from text_model.model import TinyLSTM
 
 # =====================================================
-# -------------------- Setup ---------------------------
+# Setup
 # =====================================================
 
 logging.basicConfig(level=logging.INFO)
@@ -32,8 +46,6 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://localhost:5003",
-        "http://127.0.0.1:5003",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -44,11 +56,12 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # =====================================================
-# -------------------- Cartoon Model -------------------
+# Cartoon Model
 # =====================================================
 
 NUM_CLASSES = 24
 NOISE_DIM = 100
+NUM_EMOTIONS = 4
 
 SCENARIO_TO_LABEL = {
     "dentist": 0,
@@ -56,18 +69,26 @@ SCENARIO_TO_LABEL = {
     "haircut": 2
 }
 
-G = Generator(NOISE_DIM, NUM_CLASSES).to(DEVICE)
+EMOTION_TO_LABEL = {
+    "excited": 0,
+    "nervous": 1,
+    "sad": 2,
+    "angry": 3
+}
 
+G = None
 try:
+    G = Generator(NOISE_DIM, NUM_CLASSES, NUM_EMOTIONS).to(DEVICE)
     GEN_PATH = os.path.join(BASE_DIR, "cartoonImage_model", "generator.pth")
     G.load_state_dict(torch.load(GEN_PATH, map_location=DEVICE))
     G.eval()
     logger.info("Cartoon model loaded")
 except Exception as e:
     logger.warning(f"Cartoon model not loaded: {e}")
+    G = None
 
 # =====================================================
-# ---------------- Sentence Model ----------------------
+# Sentence Model
 # =====================================================
 
 VOCAB_PATH = os.path.join(BASE_DIR, "sentence_prediction", "vocab.pkl")
@@ -79,13 +100,8 @@ with open(VOCAB_PATH, "rb") as f:
 
 inv_vocab = {v: k for k, v in vocab.items()}
 
-VOCAB_SIZE = len(vocab)
-EMBED_SIZE = 128
-HIDDEN_SIZE = 256
-MAX_LEN = 15
-
-encoder = Encoder(VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE)
-decoder = Decoder(VOCAB_SIZE, EMBED_SIZE, HIDDEN_SIZE)
+encoder = Encoder(len(vocab), 128, 256)
+decoder = Decoder(len(vocab), 128, 256)
 
 sentence_model = Seq2Seq(encoder, decoder, DEVICE).to(DEVICE)
 sentence_model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
@@ -94,7 +110,27 @@ sentence_model.eval()
 logger.info("Sentence model loaded")
 
 # =====================================================
-# ---------------- Story TinyLSTM Model ----------------
+# Adaptive Learning
+# =====================================================
+
+ARTIFACT_DIR = os.path.join(BASE_DIR, "adaptive_learning", "artifacts", "models")
+
+registry = ModelRegistry(model_dir=ARTIFACT_DIR)
+
+clu_path = os.path.join(ARTIFACT_DIR, "clusterer.pkl")
+clusterer = BehaviourClusterer.load(clu_path) if os.path.exists(clu_path) else BehaviourClusterer()
+
+rl_path = os.path.join(ARTIFACT_DIR, "rl_agent.json")
+rl_agent = QLearningAgent.load(rl_path) if os.path.exists(rl_path) else QLearningAgent()
+
+adaptive_engine = AdaptiveEngine(registry, clusterer, rl_agent)
+feature_engineer = FeatureEngineer()
+
+session_rewards = {}
+session_seen_questions = {}
+
+# =====================================================
+# Story Model
 # =====================================================
 
 STORY_VOCAB_PATH = os.path.join(BASE_DIR, "text_model", "vocab.json")
@@ -114,7 +150,7 @@ story_model.eval()
 logger.info("Story model loaded")
 
 # =====================================================
-# ---------------- Request Models ----------------------
+# Schemas
 # =====================================================
 
 class FullGenerateRequest(BaseModel):
@@ -126,96 +162,50 @@ class SentenceRequest(BaseModel):
     text: str
 
 # =====================================================
-# ---------------- Helper Functions --------------------
+# Helpers
 # =====================================================
 
 def tensor_to_base64(image_tensor):
-    if image_tensor.dim() == 4:
-        image_tensor = image_tensor.squeeze(0)
-
-    image_tensor = torch.clamp(image_tensor, 0, 1)
-    image = transforms.ToPILImage()(image_tensor.cpu())
-
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode()
-
-# ---------- Sentence Prediction ----------
+    image_tensor = image_tensor.squeeze(0)
+    image = transforms.ToPILImage()(torch.clamp(image_tensor, 0, 1).cpu())
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode()
 
 def predict_sentence_model(text):
     tokens = text.lower().split()
     indices = [vocab.get(t, vocab["<unk>"]) for t in tokens]
-    indices = indices[:MAX_LEN]
-    indices += [vocab["<pad>"]] * (MAX_LEN - len(indices))
+    indices += [vocab["<pad>"]] * (15 - len(indices))
 
-    src = torch.tensor(indices).unsqueeze(0).to(DEVICE)
+    src = torch.tensor(indices[:15]).unsqueeze(0).to(DEVICE)
 
     with torch.no_grad():
         hidden = sentence_model.encoder(src)
 
-    input_token = torch.tensor([vocab["<sos>"]]).to(DEVICE)
+    token = torch.tensor([vocab["<sos>"]]).to(DEVICE)
     output_words = []
 
-    for _ in range(MAX_LEN):
-        with torch.no_grad():
-            output, hidden = sentence_model.decoder(input_token, hidden)
-
-        top1 = output.argmax(1).item()
-
-        if top1 in [vocab["<eos>"], vocab["<pad>"]]:
+    for _ in range(15):
+        output, hidden = sentence_model.decoder(token, hidden)
+        top = output.argmax(1).item()
+        if top in [vocab["<eos>"], vocab["<pad>"]]:
             break
-
-        output_words.append(inv_vocab.get(top1, ""))
-        input_token = torch.tensor([top1]).to(DEVICE)
+        output_words.append(inv_vocab.get(top, ""))
+        token = torch.tensor([top]).to(DEVICE)
 
     return " ".join(output_words)
 
-def append_to_log(inp, pred):
-    entry = {
-        "input": inp,
-        "prediction": pred,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-
-    if os.path.exists(LOG_PATH):
-        with open(LOG_PATH, "r") as f:
-            try:
-                data = json.load(f)
-            except:
-                data = []
-    else:
-        data = []
-
-    data.append(entry)
-
-    with open(LOG_PATH, "w") as f:
-        json.dump(data, f, indent=4)
-
-# ---------- Story Generation ----------
-
-def generate_story(seed_text, max_words=80):
+def generate_story(seed_text):
     words = seed_text.lower().split()
     state = None
 
-    for _ in range(max_words):
-        input_ids = torch.tensor(
-            [[story_word2idx.get(w, story_word2idx.get("<unk>", 0)) for w in words[-10:]]]
-        ).to(DEVICE)
+    for _ in range(80):
+        input_ids = torch.tensor([[story_word2idx.get(w, 0) for w in words[-10:]]]).to(DEVICE)
+        output, state = story_model(input_ids, state)
 
-        with torch.no_grad():
-            output, state = story_model(input_ids, state)
-
-        logits = output[0, -1]
-
-        temperature = 0.8
-        probs = torch.softmax(logits / temperature, dim=0)
-
-        top_k = 10
-        top_probs, top_indices = torch.topk(probs, top_k)
-        top_probs = top_probs / torch.sum(top_probs)
-
-        predicted_idx = top_indices[torch.multinomial(top_probs, 1)].item()
-        next_word = story_idx2word[predicted_idx]
+        probs = torch.softmax(output[0, -1] / 0.8, dim=0)
+        top_probs, top_idx = torch.topk(probs, 10)
+        next_word = story_idx2word[top_idx[torch.multinomial(top_probs, 1)].item()]
 
         if next_word == "<end>":
             break
@@ -224,37 +214,8 @@ def generate_story(seed_text, max_words=80):
 
     return " ".join(words)
 
-def enrich_emotion(story, name, emotion):
-    emotional_lines = {
-        "excited": [
-            f"{name.capitalize()} feels butterflies of excitement inside.",
-            f"{name.capitalize()} cannot wait to see what happens next."
-        ],
-        "nervous": [
-            f"{name.capitalize()}'s heart beats a little faster.",
-            "It is okay to feel nervous sometimes."
-        ],
-        "sad": [
-            f"{name.capitalize()}'s eyes feel a little heavy.",
-            "It is okay to feel sad."
-        ],
-        "angry": [
-            f"{name.capitalize()}'s hands feel tight for a moment.",
-            "Taking slow deep breaths can help."
-        ],
-        "scared": [
-            f"{name.capitalize()} feels a small shiver inside.",
-            "It is safe, and grown-ups are there to help."
-        ]
-    }
-
-    if emotion in emotional_lines:
-        story = " ".join(emotional_lines[emotion]) + " " + story
-
-    return story
-
 # =====================================================
-# -------------------- Routes --------------------------
+# Routes
 # =====================================================
 
 @app.get("/")
@@ -263,54 +224,85 @@ def home():
 
 @app.post("/generate-full")
 def generate_full(request: FullGenerateRequest):
-    try:
-        # ---- Cartoon ----
-        img_base64 = None
-        if request.scenario in SCENARIO_TO_LABEL:
-            label = torch.tensor([SCENARIO_TO_LABEL[request.scenario]]).to(DEVICE)
-            noise = torch.randn(1, NOISE_DIM).to(DEVICE)
+    img_base64 = None
 
-            with torch.no_grad():
-                fake = G(noise, label)
+    if G is not None and request.scenario in SCENARIO_TO_LABEL:
+        scenario_label = torch.tensor([SCENARIO_TO_LABEL[request.scenario]]).to(DEVICE)
+        emotion_label = torch.tensor([EMOTION_TO_LABEL.get(request.emotion, 0)]).to(DEVICE)
+        noise = torch.randn(1, NOISE_DIM).to(DEVICE)
 
-            img_base64 = tensor_to_base64(fake)
+        with torch.no_grad():
+            fake = G(noise, scenario_label, emotion_label)
 
-        # ---- Story ----
-        seed = f"<scenario_{request.scenario}> <emotion_{request.emotion}> <name> </start>"
-        raw_story = generate_story(seed)
+        img_base64 = tensor_to_base64(fake)
 
-        raw_story = raw_story.replace("<name>", request.name.lower())
-        raw_story = re.sub(r"<.*?>", "", raw_story)
-        raw_story = re.sub(r"\s+", " ", raw_story).strip()
+    seed = f"<scenario_{request.scenario}> <emotion_{request.emotion}> <name> </start>"
+    story = generate_story(seed)
 
-        sentences = [s.strip().capitalize() for s in raw_story.split(".") if s.strip()]
-        story = ". ".join(sentences) + "."
-
-        story = enrich_emotion(story, request.name, request.emotion)
-
-        return {
-            "story": story,
-            "image": img_base64,
-            "scenario": request.scenario.replace("_", " ")
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"story": story, "image": img_base64}
 
 @app.post("/predict-sentence")
 def predict_sentence(request: SentenceRequest):
-    try:
-        text = request.text.strip()
-        if not text:
-            raise HTTPException(status_code=400, detail="Empty input")
+    return {"prediction": predict_sentence_model(request.text)}
 
-        prediction = predict_sentence_model(text)
-        append_to_log(text, prediction)
+# =====================================================
+# Adaptive Routes
+# =====================================================
 
-        return {
-            "input": text,
-            "prediction": prediction
-        }
+@app.post("/adaptive/start")
+def adaptive_start(student_id: str, module: str):
+    get_or_create_student(student_id, "", 5)
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    session_id = str(uuid.uuid4())
+    create_session(session_id, student_id, module)
+
+    session_rewards[session_id] = RewardEngine()
+
+    q = get_random_question(module, difficulty=1)
+
+    if not q:
+        raise HTTPException(404, "No questions")
+
+    return {"session_id": session_id, "question": q}
+
+@app.post("/adaptive/answer")
+def adaptive_answer(data: dict):
+    stats = get_student_stats(data["student_id"], data["module"], data["topic"])
+    cluster = get_student_cluster(data["student_id"])
+
+    raw = RawEvent(
+        student_id=data["student_id"],
+        session_id=data["session_id"],
+        question_id=data["question_id"],
+        module=Module(data["module"]),
+        topic=data["topic"],
+        difficulty=Difficulty(data["difficulty"]),
+        response_time_sec=data["response_time_sec"],
+        answer_given=data["answer_given"],
+        is_correct=data["is_correct"]
+    )
+
+    features = feature_engineer.build(
+        event=raw,
+        past_accuracy_topic=stats["past_accuracy_topic"],
+        past_accuracy_module=stats["past_accuracy_module"],
+        attempts_on_topic=stats["attempts_on_topic"],
+        session_number=stats["session_number"],
+        time_since_last_sec=stats["time_since_last_sec"],
+        cluster_label=cluster,
+        total_events=stats["total_events"],
+    )
+
+    decision = adaptive_engine.decide(features, Difficulty(data["difficulty"]), stats["total_events"])
+
+    next_q = get_random_question(data["module"], decision.recommended_difficulty.value)
+
+    return {
+        "next_difficulty": decision.recommended_difficulty.value,
+        "next_question": next_q
+    }
+
+@app.post("/adaptive/end")
+def adaptive_end(session_id: str):
+    close_session(session_id, 0, 0, 0)
+    return {"message": "Session ended"}
