@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+from sklearn.model_selection import train_test_split
 from model import Encoder, Decoder, Seq2Seq
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -9,7 +10,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # -------------------
 # Load Dataset
 # -------------------
-df = pd.read_csv(r"data/asd_dataset.csv")
+df = pd.read_csv("asd_train.csv")
+
+# VALIDATION SPLIT
+train_df, val_df = train_test_split(df, test_size=0.1, random_state=42)
 
 sentences = list(df["fragmented_input"]) + list(df["corrected_output"])
 
@@ -60,8 +64,13 @@ class ASDDataset(Dataset):
 
         return torch.tensor(inp), torch.tensor(out)
 
-dataset = ASDDataset(df)
-loader = DataLoader(dataset, batch_size=32, shuffle=True)
+# TRAIN + VALIDATION DATASETS
+train_dataset = ASDDataset(train_df)
+val_dataset = ASDDataset(val_df)
+
+# LOADERS
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=32)
 
 # -------------------
 # Initialize Model
@@ -75,14 +84,25 @@ model = Seq2Seq(encoder, decoder, device).to(device)
 optimizer = torch.optim.Adam(model.parameters())
 criterion = nn.CrossEntropyLoss(ignore_index=word2idx["<pad>"])
 
+# LOSS TRACKING
+train_losses = []
+val_losses = []
+
+# -------------------
+# EARLY STOPPING SETUP (FIXED)
+# -------------------
+best_val_loss = float('inf')
+patience = 2
+wait = 0
+
 # -------------------
 # Training Loop
 # -------------------
-for epoch in range(10):
+for epoch in range(15):
     model.train()
-    total_loss = 0
+    total_train_loss = 0
 
-    for src, trg in loader:
+    for src, trg in train_loader:
         src, trg = src.to(device), trg.to(device)
 
         output = model(src, trg)
@@ -96,14 +116,56 @@ for epoch in range(10):
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.item()
+        total_train_loss += loss.item()
 
-    print(f"Epoch {epoch+1}, Loss: {total_loss/len(loader)}")
+    avg_train_loss = total_train_loss / len(train_loader)
+    train_losses.append(avg_train_loss)
 
+    # VALIDATION
+    model.eval()
+    total_val_loss = 0
+
+    with torch.no_grad():
+        for src, trg in val_loader:
+            src, trg = src.to(device), trg.to(device)
+
+            output = model(src, trg)
+
+            output = output[:, 1:].reshape(-1, vocab_size)
+            trg = trg[:, 1:].reshape(-1)
+
+            loss = criterion(output, trg)
+            total_val_loss += loss.item()
+
+    avg_val_loss = total_val_loss / len(val_loader)
+    val_losses.append(avg_val_loss)
+
+    print(f"Epoch {epoch+1}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
+
+    # -------------------
+    # EARLY STOPPING (FIXED PROPERLY)
+    # -------------------
+    if avg_val_loss < best_val_loss:
+        best_val_loss = avg_val_loss
+        torch.save(model.state_dict(), "best_model.pt")
+        wait = 0
+    else:
+        wait += 1
+        if wait >= patience:
+            print("Early stopping triggered")
+            break
+
+# -------------------
+# LOAD BEST MODEL (IMPORTANT)
+# -------------------
+print("Loading best model...")
+model.load_state_dict(torch.load("best_model.pt"))
+
+# SAVE FINAL MODEL
 torch.save(model.state_dict(), "asd_model.pt")
 print("Training complete.")
-import pickle
 
+# SAVE VOCAB
+import pickle
 with open("vocab.pkl", "wb") as f:
     pickle.dump(word2idx, f)
-    
